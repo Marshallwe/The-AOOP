@@ -1,12 +1,11 @@
-package model;
+// model/WordValidator.java
+package gui;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class WordValidator {
@@ -33,5 +32,22 @@ public class WordValidator {
         return word != null
                 && word.length() == 4
                 && dictionary.contains(word.toLowerCase());
+    }
+
+    public List<String> getRandomWordPair() throws IOException {
+        if (dictionary.size() < 2) {
+            throw new IOException("Dictionary contains fewer than 2 words");
+        }
+
+        List<String> wordList = new ArrayList<>(dictionary);
+        Collections.shuffle(wordList);
+
+        String first = wordList.get(0);
+        String second;
+        do {
+            second = wordList.get(1);
+        } while (first.equals(second));
+
+        return Arrays.asList(first, second);
     }
 }

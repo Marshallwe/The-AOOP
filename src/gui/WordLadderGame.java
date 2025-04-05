@@ -1,11 +1,12 @@
-package model;
 
-import java.awt.Color;
+package gui;
+
+import java.awt.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class WordLadderGame {
-
     public enum CharacterFeedback {
         GREEN(Color.GREEN, "\u001B[32m"),
         GREY(Color.GRAY, "\u001B[90m");
@@ -32,8 +33,10 @@ public class WordLadderGame {
     private String currentWord;
     private final WordValidator validator;
     private final List<String> attempts = new ArrayList<>();
+    private final GameConfig config;
+    private final List<String> transformationPath = new ArrayList<>();
 
-    public WordLadderGame(String start, String target, WordValidator validator) {
+    public WordLadderGame(String start, String target, WordValidator validator, GameConfig config) {
         if (start == null || target == null || start.length() != 4 || target.length() != 4) {
             throw new IllegalArgumentException("Start and target must be 4-letter words");
         }
@@ -41,11 +44,17 @@ public class WordLadderGame {
         this.targetWord = target.toLowerCase();
         this.currentWord = this.startWord;
         this.validator = validator;
+        this.config = config;
+        this.transformationPath.add(this.startWord);
     }
+
     public void resetGame() {
         this.currentWord = this.startWord;
         this.attempts.clear();
+        this.transformationPath.clear();
+        this.transformationPath.add(this.startWord);
     }
+
     public String getTargetWord() {
         return this.targetWord;
     }
@@ -58,6 +67,7 @@ public class WordLadderGame {
         }
         attempts.add(word);
         currentWord = word.toLowerCase();
+        transformationPath.add(currentWord);
         return true;
     }
 
@@ -97,5 +107,16 @@ public class WordLadderGame {
 
     public List<String> getAttempts() {
         return new ArrayList<>(attempts);
+    }
+
+    public List<String> getTransformationPath() {
+        if (config.isDisplayPath()) {
+            return Collections.unmodifiableList(transformationPath);
+        }
+        return Collections.emptyList();
+    }
+
+    public GameConfig getConfig() {
+        return config;
     }
 }
