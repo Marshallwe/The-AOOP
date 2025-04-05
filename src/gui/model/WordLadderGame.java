@@ -1,31 +1,14 @@
+package gui.model;
 
-package gui;
-
-import java.awt.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class WordLadderGame {
-    public enum CharacterFeedback {
-        GREEN(Color.GREEN, "\u001B[32m"),
-        GREY(Color.GRAY, "\u001B[90m");
-
-        private final Color guiColor;
-        private final String ansiCode;
-
-        CharacterFeedback(Color guiColor, String ansiCode) {
-            this.guiColor = guiColor;
-            this.ansiCode = ansiCode;
-        }
-
-        public Color getColor() {
-            return this.guiColor;
-        }
-
-        public String getAnsiColor() {
-            return this.ansiCode;
-        }
+    public enum CharacterStatus {
+        CORRECT_POSITION,
+        PRESENT_IN_WORD,
+        NOT_PRESENT
     }
 
     private final String startWord;
@@ -37,6 +20,13 @@ public class WordLadderGame {
     private final List<String> transformationPath = new ArrayList<>();
 
     public WordLadderGame(String start, String target, WordValidator validator, GameConfig config) {
+        assert start != null : "Start word cannot be null";
+        assert target != null : "Target word cannot be null";
+        assert start.length() == 4 : "Start word must be 4 characters";
+        assert target.length() == 4 : "Target word must be 4 characters";
+        assert validator != null : "WordValidator cannot be null";
+        assert config != null : "GameConfig cannot be null";
+
         if (start == null || target == null || start.length() != 4 || target.length() != 4) {
             throw new IllegalArgumentException("Start and target must be 4-letter words");
         }
@@ -60,6 +50,8 @@ public class WordLadderGame {
     }
 
     public boolean submitAttempt(String word) {
+        assert word != null : "Submitted word cannot be null";
+        assert word.length() == 4 : "Submitted word must be 4 characters";
         if (word == null || word.length() != 4
                 || !validator.isValidWord(word)
                 || !isOneLetterDifferent(currentWord, word)) {
@@ -72,6 +64,10 @@ public class WordLadderGame {
     }
 
     private boolean isOneLetterDifferent(String word1, String word2) {
+        assert word1 != null : "First word cannot be null";
+        assert word2 != null : "Second word cannot be null";
+        assert word1.length() == 4 : "First word must be 4 characters";
+        assert word2.length() == 4 : "Second word must be 4 characters";
         if (word1.length() != 4 || word2.length() != 4) return false;
         int differences = 0;
         for (int i = 0; i < 4; i++) {
@@ -86,19 +82,21 @@ public class WordLadderGame {
         return currentWord.equals(targetWord);
     }
 
-    public List<CharacterFeedback> getFeedback(String word) {
-        List<CharacterFeedback> feedback = new ArrayList<>();
+    public List<CharacterStatus> getCharacterStatus(String word) {
+        assert word != null : "Input word cannot be null";
+        assert word.length() == 4 : "Input word must be 4 characters";
+        List<CharacterStatus> statuses = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
             char c = word.charAt(i);
             if (c == targetWord.charAt(i)) {
-                feedback.add(CharacterFeedback.GREEN);
-            } else if (!targetWord.contains(String.valueOf(c))) {
-                feedback.add(CharacterFeedback.GREY);
+                statuses.add(CharacterStatus.CORRECT_POSITION);
+            } else if (targetWord.contains(String.valueOf(c))) {
+                statuses.add(CharacterStatus.PRESENT_IN_WORD);
             } else {
-                feedback.add(CharacterFeedback.GREY);
+                statuses.add(CharacterStatus.NOT_PRESENT);
             }
         }
-        return feedback;
+        return statuses;
     }
 
     public String getCurrentWord() {
@@ -114,9 +112,5 @@ public class WordLadderGame {
             return Collections.unmodifiableList(transformationPath);
         }
         return Collections.emptyList();
-    }
-
-    public GameConfig getConfig() {
-        return config;
     }
 }

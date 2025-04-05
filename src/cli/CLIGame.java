@@ -1,9 +1,9 @@
-// cli/CLIGame.java
+// src/cli/CLIGame.java
 package cli;
 
-import gui.GameConfig;
-import gui.WordLadderGame;
-import gui.WordValidator;
+import gui.model.GameConfig;
+import gui.model.WordLadderGame;
+import gui.model.WordValidator;
 import java.io.IOException;
 import java.util.List;
 import java.util.Scanner;
@@ -61,7 +61,7 @@ public class CLIGame {
             processInput(game, input, config);
         }
 
-        displayVictory(game);
+        displayVictory(game, config);
     }
 
     private static void displayCurrentState(WordLadderGame game, GameConfig config) {
@@ -75,14 +75,25 @@ public class CLIGame {
 
     private static void processInput(WordLadderGame game, String input, GameConfig config) {
         if (game.submitAttempt(input)) {
-            displayFeedback(game.getFeedback(input));
+            displayFeedback(game.getCharacterStatus(input));
         } else {
             handleInvalidAttempt(config);
         }
     }
 
-    private static void displayFeedback(List<WordLadderGame.CharacterFeedback> feedback) {
-        feedback.forEach(f -> System.out.print(f.getAnsiColor() + "■ "));
+    private static void displayFeedback(List<WordLadderGame.CharacterStatus> statuses) {
+        statuses.forEach(status -> {
+            switch (status) {
+                case CORRECT_POSITION:
+                    System.out.print("\u001B[32m■ ");  // 绿色
+                    break;
+                case PRESENT_IN_WORD:
+                    System.out.print("\u001B[33m■ ");  // 黄色
+                    break;
+                default:
+                    System.out.print("\u001B[37m■ ");  // 白色
+            }
+        });
         System.out.println("\u001B[0m");
     }
 
@@ -96,11 +107,11 @@ public class CLIGame {
         }
     }
 
-    private static void displayVictory(WordLadderGame game) {
+    private static void displayVictory(WordLadderGame game, GameConfig config) {
         System.out.println("\n\u001B[32m恭喜！您用了 "
                 + game.getAttempts().size()
                 + " 步获得胜利！\u001B[0m");
-        if (game.getConfig().isDisplayPath()) {
+        if (config.isDisplayPath()) {
             System.out.println("完整路径: " +
                     String.join(" → ", game.getTransformationPath()));
         }

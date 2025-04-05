@@ -1,5 +1,4 @@
-// model/WordValidator.java
-package gui;
+package gui.model;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,12 +28,16 @@ public class WordValidator {
     }
 
     public boolean isValidWord(String word) {
+        assert word != null : "Word cannot be null";
+        assert word.length() == 4 : "Word must be 4 characters";
         return word != null
                 && word.length() == 4
                 && dictionary.contains(word.toLowerCase());
     }
 
     public List<String> getRandomWordPair() throws IOException {
+        assert !dictionary.isEmpty() : "Dictionary cannot be empty";
+        assert dictionary.size() >= 2 : "Dictionary must contain at least 2 words";
         if (dictionary.size() < 2) {
             throw new IOException("Dictionary contains fewer than 2 words");
         }

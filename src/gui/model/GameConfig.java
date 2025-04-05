@@ -1,5 +1,4 @@
-// model/GameConfig.java
-package gui;
+package gui.model;
 
 public class GameConfig {
     private boolean showErrorMessages;
