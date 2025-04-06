@@ -1,4 +1,3 @@
-// CLIMain.java
 package cli;
 
 public class CLIMain {
@@ -6,7 +5,7 @@ public class CLIMain {
         try {
             CLIGame.start();
         } catch (Exception e) {
-            System.err.println("游戏启动失败: " + e.getMessage());
+            System.err.println("The game failed to start: " + e.getMessage());
             e.printStackTrace();
         }
     }

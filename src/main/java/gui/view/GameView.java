@@ -12,8 +12,8 @@ public class GameView extends JFrame {
     private final JButton submitButton = new JButton("Submit");
     private final JButton resetButton = new JButton("Reset");
     private final JPanel keyboardPanel = new JPanel();
-    private final JLabel targetWordLabel = new JLabel("目标单词：");
-    private final JLabel pathLabel = new JLabel("转换路径：");
+    private final JLabel targetWordLabel = new JLabel("Target word:");
+    private final JLabel pathLabel = new JLabel("Convert path:");
     private final JPanel configControlsPanel = new JPanel();
     private final ColorMapper colorMapper = new ColorMapper();
 
@@ -40,11 +40,11 @@ public class GameView extends JFrame {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
         JPanel targetPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        targetWordLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
+        targetWordLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
         targetPanel.add(targetWordLabel);
 
         JPanel pathPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        pathLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+        pathLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
         pathPanel.add(pathLabel);
 
         configControlsPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 0));
@@ -57,7 +57,7 @@ public class GameView extends JFrame {
 
     private JPanel createLetterPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
-        panel.setBorder(BorderFactory.createTitledBorder("字母状态"));
+        panel.setBorder(BorderFactory.createTitledBorder("Letter status"));
         for (int i = 0; i < 4; i++) {
             letterLabels[i] = createLetterLabel();
             panel.add(letterLabels[i]);
@@ -127,7 +127,7 @@ public class GameView extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         JPanel inputGroup = new JPanel();
         inputField.setPreferredSize(new Dimension(220, 35));
-        inputGroup.add(new JLabel("输入单词:"));
+        inputGroup.add(new JLabel("Enter the word:"));
         inputGroup.add(inputField);
 
         JPanel buttonGroup = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
@@ -176,11 +176,11 @@ public class GameView extends JFrame {
     }
 
     public void setTargetWord(String targetWord) {
-        targetWordLabel.setText("目标单词：" + targetWord.toUpperCase());
+        targetWordLabel.setText("Target word:" + targetWord.toUpperCase());
     }
 
     public void setPathDisplay(String path) {
-        pathLabel.setText("转换路径：" + path);
+        pathLabel.setText("Convert path:" + path);
     }
 
     public void updateCharacterDisplay(List<WordLadderGame.CharacterStatus> statuses, String input) {

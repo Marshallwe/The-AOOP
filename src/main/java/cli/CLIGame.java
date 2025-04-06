@@ -1,4 +1,4 @@
-// src/cli/CLIGame.java
+
 package cli;
 
 import gui.model.GameConfig;
@@ -21,23 +21,23 @@ public class CLIGame {
         }
     }
 
-    private static GameConfig createConfig() {
+    public static GameConfig createConfig() {
         Scanner scanner = new Scanner(System.in);
         GameConfig config = new GameConfig();
 
-        System.out.print("显示错误信息？(y/n): ");
+        System.out.print("Display error messages?(y/n): ");
         config.setShowErrorMessages(scanner.nextLine().equalsIgnoreCase("y"));
 
-        System.out.print("显示转换路径？(y/n): ");
+        System.out.print("Show the transition path?(y/n): ");
         config.setDisplayPath(scanner.nextLine().equalsIgnoreCase("y"));
 
-        System.out.print("使用随机单词？(y/n): ");
+        System.out.print("Using random words?(y/n): ");
         config.setUseRandomWords(scanner.nextLine().equalsIgnoreCase("y"));
 
         return config;
     }
 
-    private static WordLadderGame initializeGame(WordValidator validator, GameConfig config) throws IOException {
+    public static WordLadderGame initializeGame(WordValidator validator, GameConfig config) throws IOException {
         if (config.isUseRandomWords()) {
             List<String> words = validator.getRandomWordPair();
             return new WordLadderGame(words.get(0), words.get(1), validator, config);
@@ -45,17 +45,17 @@ public class CLIGame {
         return new WordLadderGame("star", "moon", validator, config);
     }
 
-    private static void runGameLoop(WordLadderGame game, GameConfig config) {
-        System.out.println("\n欢迎来到文字阶梯游戏！");
-        System.out.println("将 '" + game.getCurrentWord().toUpperCase()
-                + "' 转换为 '" + game.getTargetWord().toUpperCase() + "'\n");
+    public static void runGameLoop(WordLadderGame game, GameConfig config) {
+        System.out.println("\nWelcome to Word Ladder!");
+        System.out.println("will '" + game.getCurrentWord().toUpperCase()
+                + "' convert to '" + game.getTargetWord().toUpperCase() + "'\n");
 
         Scanner scanner = new Scanner(System.in);
 
         while (!game.isWin()) {
             displayCurrentState(game, config);
 
-            System.out.print("输入下一个单词（4字母）: ");
+            System.out.print("Enter the next word (4 letters): ");
             String input = scanner.nextLine().trim().toLowerCase();
 
             processInput(game, input, config);
@@ -64,16 +64,16 @@ public class CLIGame {
         displayVictory(game, config);
     }
 
-    private static void displayCurrentState(WordLadderGame game, GameConfig config) {
-        System.out.println("\n[当前单词] " + game.getCurrentWord().toUpperCase());
+    public static void displayCurrentState(WordLadderGame game, GameConfig config) {
+        System.out.println("\n[Current word] " + game.getCurrentWord().toUpperCase());
 
         if (config.isDisplayPath()) {
-            System.out.println("当前路径: " +
+            System.out.println("Current path: " +
                     String.join(" → ", game.getTransformationPath()));
         }
     }
 
-    private static void processInput(WordLadderGame game, String input, GameConfig config) {
+    public static void processInput(WordLadderGame game, String input, GameConfig config) {
         if (game.submitAttempt(input)) {
             displayFeedback(game.getCharacterStatus(input));
         } else {
@@ -85,13 +85,13 @@ public class CLIGame {
         statuses.forEach(status -> {
             switch (status) {
                 case CORRECT_POSITION:
-                    System.out.print("\u001B[32m■ ");  // 绿色
+                    System.out.print("\u001B[32m■ ");
                     break;
                 case PRESENT_IN_WORD:
-                    System.out.print("\u001B[33m■ ");  // 黄色
+                    System.out.print("\u001B[33m■ ");
                     break;
                 default:
-                    System.out.print("\u001B[37m■ ");  // 白色
+                    System.out.print("\u001B[37m■ ");
             }
         });
         System.out.println("\u001B[0m");
@@ -99,20 +99,20 @@ public class CLIGame {
 
     private static void handleInvalidAttempt(GameConfig config) {
         if (config.isShowErrorMessages()) {
-            System.out.println("无效单词！原因：");
-            System.out.println("1. 必须与当前单词仅差一个字母");
-            System.out.println("2. 必须是字典中的有效4字母单词\n");
+            System.out.println(" Invalid word! Reason: ");
+            System.out.println("1. must be one letter away from the current word ");
+            System.out.println("2. must be a valid 4-letter dictionary word \n");
         } else {
-            System.out.println("输入无效，请重试\n");
+            System.out.println(" Invalid input, please try again \n");
         }
     }
 
-    private static void displayVictory(WordLadderGame game, GameConfig config) {
-        System.out.println("\n\u001B[32m恭喜！您用了 "
+    public static void displayVictory(WordLadderGame game, GameConfig config) {
+        System.out.println("\n\u001B[32mCongratulations! You used the "
                 + game.getAttempts().size()
-                + " 步获得胜利！\u001B[0m");
+                + " step to victory!\u001B[0m");
         if (config.isDisplayPath()) {
-            System.out.println("完整路径: " +
+            System.out.println("Complete path: " +
                     String.join(" → ", game.getTransformationPath()));
         }
     }

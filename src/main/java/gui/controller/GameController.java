@@ -33,9 +33,9 @@ public class GameController {
     }
 
     private void setupConfigControls() {
-        addToggleCheckbox("显示错误", config.isShowErrorMessages(),
+        addToggleCheckbox("Displaying errors", config.isShowErrorMessages(),
                 selected -> config.setShowErrorMessages(selected));
-        addToggleCheckbox("显示路径", config.isDisplayPath(),
+        addToggleCheckbox("Display path", config.isDisplayPath(),
                 selected -> {
                     config.setDisplayPath(selected);
                     updatePathDisplay();
@@ -75,12 +75,12 @@ public class GameController {
 
     private void handleInvalidAttempt() {
         String message = config.isShowErrorMessages() ?
-                "无效输入！请检查：\n1. 每次只能修改一个字母\n2. 必须是有效单词" : "无效尝试，请重试";
-        JOptionPane.showMessageDialog(view, message, "错误", JOptionPane.WARNING_MESSAGE);
+                "Invalid input! Check: \n1. Only one letter can be modified at a time \n2. Must be a valid word ":" Invalid attempt, please try again ";
+        JOptionPane.showMessageDialog(view, message, "Error", JOptionPane.WARNING_MESSAGE);
     }
 
     private void showLengthError() {
-        JOptionPane.showMessageDialog(view, "单词必须为4个字母", "输入错误", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(view, "Word must be 4 letters "," Typos", JOptionPane.ERROR_MESSAGE);
     }
 
     private void handleReset(ActionEvent e) {
@@ -90,16 +90,17 @@ public class GameController {
         updatePathDisplay();
     }
 
-    private void updatePathDisplay() {
+    public void updatePathDisplay() {
         view.setPathDisplay(config.isDisplayPath() ?
                 String.join(" → ", game.getTransformationPath()) : "");
     }
 
     private void showWinDialog() {
         int option = JOptionPane.showOptionDialog(view,
-                String.format("恭喜！您用%d步完成了挑战！\n再玩一次吗？", game.getAttempts().size()),
-                "游戏胜利", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE,
-                null, new Object[]{"再来一局", "退出游戏"}, "再来一局");
+                String.format("Congratulations! You completed the challenge with the %d step!\n" +
+                        "Do you want to play again?", game.getAttempts().size()),
+                "Winning the game", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE,
+                null, new Object[]{" Play one more game ", "quit game "}," Play one more game");
 
         if (option == JOptionPane.YES_OPTION) {
             game.resetGame();

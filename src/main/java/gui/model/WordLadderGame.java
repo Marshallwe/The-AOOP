@@ -8,7 +8,7 @@ public class WordLadderGame {
     public enum CharacterStatus {
         CORRECT_POSITION,
         PRESENT_IN_WORD,
-        NOT_PRESENT
+        CORRECT, NOT_PRESENT
     }
 
     private final String startWord;
