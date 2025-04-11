@@ -1,4 +1,3 @@
-// Model.java
 package gui.model;
 
 import java.io.IOException;
@@ -15,54 +14,68 @@ public class Model extends Observable {
     }
 
     public enum NotificationType {
-        STATE_UPDATE, CONFIG_CHANGED, GAME_RESET, GAME_WON
-    }
-    public String getStartWord() {
-        return game != null ? game.startWord() : "";
+        STATE_UPDATE, CONFIG_CHANGED, GAME_RESET, GAME_WON, ERROR
     }
 
     private final GameConfig config = new GameConfig();
     private WordLadderGame game;
     private final WordValidator validator;
+    private String lastErrorMessage;
 
     public Model(String dictionaryPath) throws IOException {
         this.validator = new WordValidator(dictionaryPath);
     }
 
-    public void initializeGame(String startWord, String targetWord) {
-        validateWords(startWord, targetWord);
-        checkWordsInDictionary(startWord, targetWord);
-
-        this.game = new WordLadderGame(
-                startWord.toLowerCase(),
-                targetWord.toLowerCase(),
-                validator,
-                config
-        );
-        notify(NotificationType.GAME_RESET);
+    public String getStartWord() {
+        return game != null ? game.startWord() : "";
     }
 
-    // Model.java 修改submitGuess方法
-    public boolean submitGuess(String word) {
-        Objects.requireNonNull(word, "Input word cannot be null");
-        checkGameInitialized();
+    public void initializeGame(String startWord, String targetWord) {
+        try {
+            validateWords(startWord, targetWord);
+            checkWordsInDictionary(startWord, targetWord);
 
-        if (game.submitAttempt(word)) {
-            // 先触发状态更新再检查胜利
-            notify(NotificationType.STATE_UPDATE);
-
-            if (game.isWin()) {
-                notify(NotificationType.GAME_WON);
-            }
-            return true;
+            this.game = new WordLadderGame(
+                    startWord.toLowerCase(),
+                    targetWord.toLowerCase(),
+                    validator,
+                    config
+            );
+            notify(NotificationType.GAME_RESET);
+        } catch (IllegalArgumentException e) {
+            lastErrorMessage = e.getMessage();
+            notify(NotificationType.ERROR);
         }
-        return false;
+    }
+
+    public boolean submitGuess(String word) {
+        try {
+            Objects.requireNonNull(word, "Input word cannot be null");
+            checkGameInitialized();
+
+            if (game.submitAttempt(word)) {
+                notify(NotificationType.STATE_UPDATE);
+                if (game.isWin()) {
+                    notify(NotificationType.GAME_WON);
+                }
+                return true;
+            }
+            return false;
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            lastErrorMessage = e.getMessage();
+            notify(NotificationType.ERROR);
+            return false;
+        }
     }
 
     public void resetGame() {
         checkGameInitialized();
         game.reset();
         notify(NotificationType.GAME_RESET);
+    }
+
+    public String getLastErrorMessage() {
+        return lastErrorMessage;
     }
 
     public void setErrorDisplayEnabled(boolean enabled) {
@@ -98,6 +111,7 @@ public class Model extends Observable {
     public int getAttemptCount() {
         return game != null ? game.attemptCount() : 0;
     }
+
     public void setUseRandomWords(boolean enabled) {
         config.setUseRandomWords(enabled);
         notify(NotificationType.CONFIG_CHANGED);
@@ -148,13 +162,30 @@ public class Model extends Observable {
         private boolean showErrors = true;
         private boolean showPath = true;
         private boolean useRandom = false;
-        boolean showErrors() { return showErrors; }
-        void setShowErrors(boolean show) { this.showErrors = show; }
 
-        boolean showPath() { return showPath; }
-        void setShowPath(boolean show) { this.showPath = show; }
-        boolean useRandomWords() { return useRandom; }
-        void setUseRandomWords(boolean enable) { this.useRandom = enable; }
+        boolean showErrors() {
+            return showErrors;
+        }
+
+        void setShowErrors(boolean show) {
+            this.showErrors = show;
+        }
+
+        boolean showPath() {
+            return showPath;
+        }
+
+        void setShowPath(boolean show) {
+            this.showPath = show;
+        }
+
+        boolean useRandomWords() {
+            return useRandom;
+        }
+
+        void setUseRandomWords(boolean enable) {
+            this.useRandom = enable;
+        }
     }
 
     private class WordLadderGame {
@@ -164,9 +195,8 @@ public class Model extends Observable {
         private final List<String> path;
         private final WordValidator validator;
         private final GameConfig config;
-        String startWord() { return start; }
-        WordLadderGame(String start, String target,
-                       WordValidator validator, GameConfig config) {
+
+        WordLadderGame(String start, String target, WordValidator validator, GameConfig config) {
             this.start = start;
             this.target = target;
             this.current = start;
@@ -176,6 +206,10 @@ public class Model extends Observable {
             this.path.add(start);
         }
 
+        String startWord() {
+            return start;
+        }
+
         int attemptCount() {
             return path.size() - 1;
         }
@@ -183,9 +217,8 @@ public class Model extends Observable {
         boolean submitAttempt(String attempt) {
             if (isValidAttempt(attempt)) {
                 String newWord = attempt.toLowerCase();
-                path.add(newWord);  // 先添加新词到路径
-                current = newWord;  // 再更新当前词
-
+                path.add(newWord);
+                current = newWord;
                 return true;
             }
             return false;
@@ -202,8 +235,7 @@ public class Model extends Observable {
         private boolean isSingleLetterChange(String current, String attempt) {
             int diff = 0;
             for (int i = 0; i < 4; i++) {
-                if (Character.toLowerCase(current.charAt(i))
-                        != Character.toLowerCase(attempt.charAt(i))) {
+                if (Character.toLowerCase(current.charAt(i)) != Character.toLowerCase(attempt.charAt(i))) {
                     if (++diff > 1) return false;
                 }
             }
@@ -211,17 +243,14 @@ public class Model extends Observable {
         }
 
         List<CharacterStatus> calculateFeedback(String word) {
-            // 创建目标字符的拷贝数组
             char[] targetCopy = target.toCharArray().clone();
-
             CharacterStatus[] statuses = new CharacterStatus[4];
             Arrays.fill(statuses, CharacterStatus.NOT_PRESENT);
 
-            // 第一遍检查正确位置
             for (int i = 0; i < 4; i++) {
                 if (Character.toLowerCase(word.charAt(i)) == targetCopy[i]) {
                     statuses[i] = CharacterStatus.CORRECT_POSITION;
-                    targetCopy[i] = 0; // 标记已匹配
+                    targetCopy[i] = 0;
                 }
             }
 
@@ -258,8 +287,13 @@ public class Model extends Observable {
                     : Optional.empty();
         }
 
-        String currentWord() { return current; }
-        String targetWord() { return target; }
+        String currentWord() {
+            return current;
+        }
+
+        String targetWord() {
+            return target;
+        }
     }
 
     private static class WordValidator {
@@ -279,12 +313,10 @@ public class Model extends Observable {
             }
         }
 
-        // Model.java 修改WordValidator的isValid方法
         boolean isValid(String word) {
-            boolean valid = word != null
+            return word != null
                     && word.length() == 4
                     && dictionary.contains(word.toLowerCase());
-            return valid;
         }
 
         String[] getValidWordPair() {
@@ -292,7 +324,6 @@ public class Model extends Observable {
             if (words.size() < 2) {
                 throw new IllegalStateException("Insufficient dictionary words");
             }
-
             Collections.shuffle(words);
             return new String[]{words.get(0), words.get(1)};
         }

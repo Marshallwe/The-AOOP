@@ -3,13 +3,15 @@ package gui.controller;
 
 import gui.model.Model;
 import gui.view.GameView;
-import javax.swing.*;
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.Observable;
 import java.util.Observer;
 
 public class GameController implements Observer {
+    public interface ConfigToggleHandler {
+        void toggle(boolean enabled);
+    }
+
     private final GameView view;
     private final Model model;
 
@@ -26,61 +28,50 @@ public class GameController implements Observer {
         refreshGameState();
         view.setupWindow();
     }
+
     private void initializeConfigControls() {
-        addConfigToggle("Show Errors", model.isErrorDisplayEnabled(),
-                model::setErrorDisplayEnabled);
+        view.addConfigToggle("Show Errors", model.isErrorDisplayEnabled(),
+                enabled -> model.setErrorDisplayEnabled(enabled));
 
-        addConfigToggle("Show Path", model.isPathDisplayEnabled(),
-                model::setPathDisplayEnabled);
+        view.addConfigToggle("Show Path", model.isPathDisplayEnabled(),
+                enabled -> model.setPathDisplayEnabled(enabled));
 
-        // 新增随机单词切换
-        addConfigToggle("Random Words", model.isRandomWordsEnabled(),
+        view.addConfigToggle("Random Words", model.isRandomWordsEnabled(),
                 enabled -> {
                     model.setUseRandomWords(enabled);
-                    handleConfigChange(); // 处理配置变更
+                    handleConfigChange();
                 });
 
         view.addConfigSpacer(20);
     }
 
-    // 新增配置变更处理方法
     private void handleConfigChange() {
         if (model.isRandomWordsEnabled()) {
-            startNewGame(); // 启用随机时生成新词对
+            startNewGame();
         } else {
-            // 关闭随机时使用默认词对
             try {
                 model.initializeGame("star", "moon");
             } catch (IllegalArgumentException e) {
-                showFeedbackDialog("Configuration Error", e.getMessage(), true);
+                view.showFeedbackDialog("Configuration Error", e.getMessage(), true);
             }
         }
     }
 
-    // GameController.java
     private void refreshGameState() {
         updateStartDisplay();
         updateTargetDisplay();
-        updatePathDisplay();  // 新增
+        updatePathDisplay();
         updatePathVisibility();
-        view.getResetButton().setEnabled(model.getAttemptCount() > 0);
+        view.setResetButtonEnabled(model.getAttemptCount() > 0);
     }
+
     private void updateStartDisplay() {
         view.setStartWordDisplay(model.getStartWord());
     }
+
     private void setupActionHandlers() {
-        view.getSubmitButton().addActionListener(this::handleGuessSubmission);
-        view.getResetButton().addActionListener(e -> model.resetGame());
-        view.getResetButton().setEnabled(false);
-    }
-
-
-
-    private void addConfigToggle(String label, boolean initialState,
-                                 ConfigToggleHandler handler) {
-        JCheckBox toggle = new JCheckBox(label, initialState);
-        toggle.addActionListener(e -> handler.toggle(toggle.isSelected()));
-        view.addConfigControl(toggle);
+        view.setSubmitHandler(this::handleGuessSubmission);
+        view.setResetHandler(e -> model.resetGame());
     }
 
     @Override
@@ -104,7 +95,7 @@ public class GameController implements Observer {
     }
 
     private void handleGuessSubmission(ActionEvent event) {
-        String input = view.getInputField().getText().trim().toLowerCase();
+        String input = view.getUserInput().trim().toLowerCase();
         if (!validateInputLength(input)) return;
 
         if (model.submitGuess(input)) {
@@ -116,22 +107,20 @@ public class GameController implements Observer {
 
     private boolean validateInputLength(String input) {
         if (input.length() != 4) {
-            showFeedbackDialog("Invalid Input", "Must be 4 characters", true);
+            view.showFeedbackDialog("Invalid Input", "Must be 4 characters", true);
             return false;
         }
         return true;
     }
 
     private void handleStateUpdate() {
-        SwingUtilities.invokeLater(() -> {
-            updateCharacterFeedback();
-            updatePathDisplay();
-            view.getResetButton().setEnabled(true);
+        updateCharacterFeedback();
+        updatePathDisplay();
+        view.setResetButtonEnabled(true);
 
-            if (model.getCurrentWord().equalsIgnoreCase(model.getTargetWord())) {
-                handleGameWon();
-            }
-        });
+        if (model.getCurrentWord().equalsIgnoreCase(model.getTargetWord())) {
+            handleGameWon();
+        }
     }
 
     private void updateCharacterFeedback() {
@@ -142,7 +131,6 @@ public class GameController implements Observer {
         );
     }
 
-    // GameController.java
     private void updatePathDisplay() {
         if (model.isPathDisplayEnabled()) {
             model.getGamePath().ifPresent(path ->
@@ -159,13 +147,13 @@ public class GameController implements Observer {
                     "- Must change exactly 1 letter\n" +
                     "- Must be valid dictionary word\n" +
                     "- Cannot repeat previous word";
-            showFeedbackDialog("Invalid Move", message, true);
+            view.showFeedbackDialog("Invalid Move", message, true);
         }
     }
 
     private void handleGameReset() {
         view.resetUI(model.getCurrentWord());
-        view.getResetButton().setEnabled(false);
+        view.setResetButtonEnabled(false);
         updatePathVisibility();
         updateTargetDisplay();
         updateStartDisplay();
@@ -181,39 +169,20 @@ public class GameController implements Observer {
     }
 
     private void handleGameWon() {
-        int choice = showGameResultDialog();
-        if (choice == JOptionPane.YES_OPTION) {
+        int choice = view.showGameResultDialog(model.getAttemptCount());
+        if (choice == 0) {
             if (model.isRandomWordsEnabled()) {
                 startNewGame();
             } else {
                 try {
                     model.initializeGame("star", "moon");
                 } catch (IllegalArgumentException e) {
-                    showFeedbackDialog("Game Error", e.getMessage(), true);
+                    view.showFeedbackDialog("Game Error", e.getMessage(), true);
                 }
             }
         }
     }
 
-    private int showGameResultDialog() {
-        String message = String.format(
-                "Success! Achieved in %d steps\nStart new game?",
-                model.getAttemptCount()
-        );
-
-        return JOptionPane.showOptionDialog(
-                view,
-                message,
-                "Victory",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.INFORMATION_MESSAGE,
-                null,
-                new Object[]{"New Game", "Exit"},
-                "New Game"
-        );
-    }
-
-    // GameController.java
     private void startNewGame() {
         try {
             String[] words = model.generateValidWordPair();
@@ -222,18 +191,8 @@ public class GameController implements Observer {
             updateTargetDisplay();
             updatePathDisplay();
         } catch (Exception e) {
-            showFeedbackDialog("Initialization Error",
+            view.showFeedbackDialog("Initialization Error",
                     "Failed to start new game: " + e.getMessage(), true);
         }
-    }
-
-    private void showFeedbackDialog(String title, String message, boolean isError) {
-        JOptionPane.showMessageDialog(view, message, title,
-                isError ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    @FunctionalInterface
-    private interface ConfigToggleHandler {
-        void toggle(boolean enabled);
     }
 }

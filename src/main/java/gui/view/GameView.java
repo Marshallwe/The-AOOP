@@ -1,13 +1,17 @@
 // GameView.java
 package gui.view;
 
+import gui.controller.GameController;
 import gui.model.Model;
 import javax.swing.*;
 import javax.swing.text.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
 
-public class GameView extends JFrame {
+public class GameView extends JFrame implements Observer {
     private final JLabel[] characterLabels = new JLabel[4];
     private final JTextField inputField = new JTextField(4);
     private final JButton submitButton = new JButton("Submit");
@@ -21,8 +25,115 @@ public class GameView extends JFrame {
     public GameView() {
         initializeUIComponents();
     }
+
+    @Override
+    public void update(Observable o, Object arg) {
+        if (o instanceof Model) {
+            Model model = (Model) o;
+            if (arg instanceof Model.NotificationType) {
+                handleModelNotification(model, (Model.NotificationType) arg);
+            }
+            updatePersistentDisplays(model);
+        }
+    }
+
+    public void setSubmitHandler(ActionListener listener) {
+        submitButton.addActionListener(listener);
+    }
+
+    public void setResetHandler(ActionListener listener) {
+        resetButton.addActionListener(listener);
+    }
+
+    private void handleModelNotification(Model model, Model.NotificationType type) {
+        switch (type) {
+            case STATE_UPDATE:
+                updateCharacterStatus(model.getCharacterFeedback(model.getCurrentWord()), model.getCurrentWord());
+                updatePathDisplay(model);
+                break;
+            case CONFIG_CHANGED:
+                setPathVisibility(model.isPathDisplayEnabled());
+                break;
+            case GAME_RESET:
+                resetUI(model.getCurrentWord());
+                break;
+            case GAME_WON:
+                showGameResultDialog(model.getAttemptCount());
+                break;
+            case ERROR:
+                showFeedbackDialog("Error", model.getLastErrorMessage(), true);
+                break;
+        }
+    }
+
+    public int showGameResultDialog(int attemptCount) {
+        String message = String.format("Success! Achieved in %d steps\nStart new game?", attemptCount);
+        return JOptionPane.showOptionDialog(
+                this,
+                message,
+                "Victory",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                new Object[]{"New Game", "Exit"},
+                "New Game"
+        );
+    }
+
+    public void showFeedbackDialog(String title, String message, boolean isError) {
+        JOptionPane.showMessageDialog(
+                this,
+                message,
+                title,
+                isError ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
     public void setStartWordDisplay(String word) {
         startLabel.setText("Start: " + word.toUpperCase());
+    }
+
+    public void setTargetWordDisplay(String word) {
+        targetLabel.setText("Target: " + word.toUpperCase());
+    }
+
+    public void setTransformationPathDisplay(String path) {
+        pathLabel.setText("Path: " + path);
+    }
+
+    public void updateCharacterStatus(List<Model.CharacterStatus> statuses, String word) {
+        SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < 4; i++) {
+                characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
+                characterLabels[i].setText(i < word.length()
+                        ? String.valueOf(word.charAt(i)).toUpperCase()
+                        : "_");
+            }
+        });
+    }
+
+    public void resetUI(String currentWord) {
+        SwingUtilities.invokeLater(() -> {
+            String word = currentWord.toLowerCase();
+            for (int i = 0; i < 4; i++) {
+                characterLabels[i].setText(String.valueOf(word.charAt(i)));
+                characterLabels[i].setBackground(Color.WHITE);
+            }
+            clearInputField();
+        });
+    }
+
+    public void addConfigToggle(String label, boolean initialState,
+                                GameController.ConfigToggleHandler handler) {
+        JCheckBox toggle = new JCheckBox(label, initialState);
+        toggle.addActionListener(e -> handler.toggle(toggle.isSelected()));
+        addConfigControl(toggle);
+    }
+
+    private void updatePersistentDisplays(Model model) {
+        setStartWordDisplay(model.getStartWord());
+        setTargetWordDisplay(model.getTargetWord());
+        setResetButtonEnabled(model.getAttemptCount() > 0);
     }
 
     private void initializeUIComponents() {
@@ -45,24 +156,28 @@ public class GameView extends JFrame {
         add(createVirtualKeyboard(), BorderLayout.WEST);
         add(createConfigPanel(), BorderLayout.EAST);
     }
+
     private JPanel createConfigPanel() {
         configPanel.setLayout(new BoxLayout(configPanel, BoxLayout.Y_AXIS));
         configPanel.setBorder(BorderFactory.createTitledBorder("Settings"));
         return configPanel;
     }
+
     private JPanel createHeaderSection() {
-        JPanel panel = new JPanel(new GridLayout(3, 1)); // 改为3行布局
+        JPanel panel = new JPanel(new GridLayout(3, 1));
         panel.add(createStartDisplay());
         panel.add(createTargetDisplay());
         panel.add(createPathDisplay());
         return panel;
     }
+
     private JPanel createStartDisplay() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         startLabel.setFont(new Font("Arial", Font.BOLD, 18));
         panel.add(startLabel);
         return panel;
     }
+
     private JPanel createTargetDisplay() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         targetLabel.setFont(new Font("Arial", Font.BOLD, 18));
@@ -160,6 +275,14 @@ public class GameView extends JFrame {
         }
     }
 
+    private void updatePathDisplay(Model model) {
+        if (model.isPathDisplayEnabled()) {
+            model.getGamePath().ifPresent(path -> pathLabel.setText("Path: " + String.join(" → ", path)));
+        } else {
+            pathLabel.setText("Path: ");
+        }
+    }
+
     private void deleteLastCharacter() {
         String text = inputField.getText();
         if (!text.isEmpty()) {
@@ -174,34 +297,7 @@ public class GameView extends JFrame {
     }
 
     private void setupInputFiltering() {
-        ((AbstractDocument) inputField.getDocument()).setDocumentFilter(
-                new InputFilter()
-        );
-    }
-
-    public void setTargetWordDisplay(String word) {
-        targetLabel.setText("Target: " + word.toUpperCase());
-    }
-
-    public void setTransformationPathDisplay(String path) {
-        pathLabel.setText("Path: " + path);
-    }
-
-    public void updateCharacterStatus(List<Model.CharacterStatus> statuses, String word) {
-        for (int i = 0; i < 4; i++) {
-            characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
-            characterLabels[i].setText(i < word.length()
-                    ? String.valueOf(word.charAt(i)).toUpperCase()
-                    : "_");
-        }
-    }
-
-    public void resetUI(String currentWord) {
-        String word = currentWord.toLowerCase();
-        for (int i = 0; i < 4; i++) {
-            characterLabels[i].setText(String.valueOf(word.charAt(i)));
-            characterLabels[i].setBackground(Color.WHITE);
-        }
+        ((AbstractDocument) inputField.getDocument()).setDocumentFilter(new InputFilter());
     }
 
     public void setupWindow() {
@@ -220,6 +316,10 @@ public class GameView extends JFrame {
         configPanel.add(Box.createHorizontalStrut(width));
     }
 
+    public String getUserInput() {
+        return inputField.getText();
+    }
+
     public void clearInputField() {
         inputField.setText("");
     }
@@ -228,26 +328,22 @@ public class GameView extends JFrame {
         pathLabel.setVisible(visible);
     }
 
-    public JTextField getInputField() { return inputField; }
-    public JButton getSubmitButton() { return submitButton; }
-    public JButton getResetButton() { return resetButton; }
+    public void setResetButtonEnabled(boolean enabled) {
+        resetButton.setEnabled(enabled);
+    }
 
     private class InputFilter extends DocumentFilter {
         @Override
-        public void insertString(FilterBypass fb, int offset, String str, AttributeSet attrs)
-                throws BadLocationException {
+        public void insertString(FilterBypass fb, int offset, String str, AttributeSet attrs) throws BadLocationException {
             processInput(fb, offset, 0, str, attrs, true);
         }
 
         @Override
-        public void replace(FilterBypass fb, int offset, int length, String str, AttributeSet attrs)
-                throws BadLocationException {
+        public void replace(FilterBypass fb, int offset, int length, String str, AttributeSet attrs) throws BadLocationException {
             processInput(fb, offset, length, str, attrs, false);
         }
 
-        private void processInput(FilterBypass fb, int offset, int length,
-                                  String str, AttributeSet attrs, boolean insert)
-                throws BadLocationException {
+        private void processInput(FilterBypass fb, int offset, int length, String str, AttributeSet attrs, boolean insert) throws BadLocationException {
             String filtered = str.replaceAll("[^a-zA-Z]", "");
             if (insert) {
                 super.insertString(fb, offset, filtered, attrs);
@@ -274,9 +370,12 @@ public class GameView extends JFrame {
 
         public Color getColor(Model.CharacterStatus status) {
             switch (status) {
-                case CORRECT_POSITION: return CORRECT;
-                case PRESENT_IN_WORD: return PRESENT;
-                default: return ABSENT;
+                case CORRECT_POSITION:
+                    return CORRECT;
+                case PRESENT_IN_WORD:
+                    return PRESENT;
+                default:
+                    return ABSENT;
             }
         }
     }
