@@ -1,87 +1,83 @@
-
 package cli;
 
-import gui.model.GameConfig;
-import gui.model.WordLadderGame;
-import gui.model.WordValidator;
+import gui.model.Model;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 
 public class CLIGame {
+    private static Model model;
+
     public static void start() {
         try {
-            GameConfig config = createConfig();
-            WordValidator validator = new WordValidator("dictionary.txt");
-            WordLadderGame game = initializeGame(validator, config);
-
-            runGameLoop(game, config);
+            model = new Model("dictionary.txt");
+            configureSettings();
+            initializeGame();
+            runGameLoop();
         } catch (IOException e) {
-            System.err.println("Error loading dictionary: " + e.getMessage());
+            System.err.println("Error initializing game: " + e.getMessage());
         }
     }
 
-    public static GameConfig createConfig() {
+    private static void configureSettings() {
         Scanner scanner = new Scanner(System.in);
-        GameConfig config = new GameConfig();
 
         System.out.print("Display error messages?(y/n): ");
-        config.setShowErrorMessages(scanner.nextLine().equalsIgnoreCase("y"));
+        model.setErrorDisplayEnabled(scanner.nextLine().equalsIgnoreCase("y"));
 
         System.out.print("Show the transition path?(y/n): ");
-        config.setDisplayPath(scanner.nextLine().equalsIgnoreCase("y"));
+        model.setPathDisplayEnabled(scanner.nextLine().equalsIgnoreCase("y"));
 
-        System.out.print("Using random words?(y/n): ");
-        config.setUseRandomWords(scanner.nextLine().equalsIgnoreCase("y"));
-
-        return config;
+        System.out.print("Use random words?(y/n): ");
+        model.setUseRandomWords(scanner.nextLine().equalsIgnoreCase("y"));
     }
 
-    public static WordLadderGame initializeGame(WordValidator validator, GameConfig config) throws IOException {
-        if (config.isUseRandomWords()) {
-            List<String> words = validator.getRandomWordPair();
-            return new WordLadderGame(words.get(0), words.get(1), validator, config);
+    private static void initializeGame() throws IOException {
+        if (model.isRandomWordsEnabled()) {
+            String[] words = model.generateValidWordPair();
+            model.initializeGame(words[0], words[1]);
+        } else {
+            model.initializeGame("star", "moon");
         }
-        return new WordLadderGame("star", "moon", validator, config);
     }
 
-    public static void runGameLoop(WordLadderGame game, GameConfig config) {
+    private static void runGameLoop() {
         System.out.println("\nWelcome to Word Ladder!");
-        System.out.println("will '" + game.getCurrentWord().toUpperCase()
-                + "' convert to '" + game.getTargetWord().toUpperCase() + "'\n");
+        System.out.println("Convert '" + model.getCurrentWord().toUpperCase()
+                + "' to '" + model.getTargetWord().toUpperCase() + "'\n");
 
         Scanner scanner = new Scanner(System.in);
 
-        while (!game.isWin()) {
-            displayCurrentState(game, config);
-
-            System.out.print("Enter the next word (4 letters): ");
-            String input = scanner.nextLine().trim().toLowerCase();
-
-            processInput(game, input, config);
+        while (!model.getCurrentWord().equalsIgnoreCase(model.getTargetWord())) {
+            displayCurrentState();
+            System.out.print("Enter next word (4 letters): ");
+            String input = scanner.nextLine().trim();
+            processInput(input);
         }
-
-        displayVictory(game, config);
+        displayVictory();
     }
 
-    public static void displayCurrentState(WordLadderGame game, GameConfig config) {
-        System.out.println("\n[Current word] " + game.getCurrentWord().toUpperCase());
+    private static void displayCurrentState() {
+        System.out.println("\n[Current] " + model.getCurrentWord().toUpperCase());
 
-        if (config.isDisplayPath()) {
-            System.out.println("Current path: " +
-                    String.join(" → ", game.getTransformationPath()));
+        if (model.isPathDisplayEnabled()) {
+            Optional<List<String>> pathOpt = model.getGamePath();
+            pathOpt.ifPresent(path ->
+                    System.out.println("Path: " + String.join(" → ", path))
+            );
         }
     }
 
-    public static void processInput(WordLadderGame game, String input, GameConfig config) {
-        if (game.submitAttempt(input)) {
-            displayFeedback(game.getCharacterStatus(input));
+    private static void processInput(String input) {
+        if (model.submitGuess(input)) {
+            displayFeedback(model.getCharacterFeedback(input));
         } else {
-            handleInvalidAttempt(config);
+            handleInvalidAttempt();
         }
     }
 
-    private static void displayFeedback(List<WordLadderGame.CharacterStatus> statuses) {
+    private static void displayFeedback(List<Model.CharacterStatus> statuses) {
         statuses.forEach(status -> {
             switch (status) {
                 case CORRECT_POSITION:
@@ -92,28 +88,28 @@ public class CLIGame {
                     break;
                 default:
                     System.out.print("\u001B[37m■ ");
+                    break;
             }
         });
         System.out.println("\u001B[0m");
     }
 
-    private static void handleInvalidAttempt(GameConfig config) {
-        if (config.isShowErrorMessages()) {
-            System.out.println(" Invalid word! Reason: ");
-            System.out.println("1. must be one letter away from the current word ");
-            System.out.println("2. must be a valid 4-letter dictionary word \n");
+    private static void handleInvalidAttempt() {
+        if (model.isErrorDisplayEnabled()) {
+            System.out.println("Invalid! Must be:");
+            System.out.println("1. 4-letter dictionary word");
+            System.out.println("2. Exactly 1 letter changed\n");
         } else {
-            System.out.println(" Invalid input, please try again \n");
+            System.out.println("Invalid input, try again\n");
         }
     }
 
-    public static void displayVictory(WordLadderGame game, GameConfig config) {
-        System.out.println("\n\u001B[32mCongratulations! You used the "
-                + game.getAttempts().size()
-                + " step to victory!\u001B[0m");
-        if (config.isDisplayPath()) {
-            System.out.println("Complete path: " +
-                    String.join(" → ", game.getTransformationPath()));
-        }
+    private static void displayVictory() {
+        System.out.println("\n\u001B[32mCongratulations! Steps: "
+                + model.getAttemptCount() + "\u001B[0m");
+
+        model.getGamePath().ifPresent(path ->
+                System.out.println("Full path: " + String.join(" → ", path))
+        );
     }
 }

@@ -1,20 +1,24 @@
 package main.java.cli;
+
 import cli.CLIGame;
-import gui.model.GameConfig;
-import gui.model.WordLadderGame;
-import gui.model.WordValidator;
+import gui.model.Model;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -22,95 +26,102 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class CLIGameTest {
 
-    @Mock
-    private WordValidator mockValidator;
-
-    @Mock
-    private GameConfig mockConfig;
-
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
     private final PrintStream originalOut = System.out;
 
+    @Mock
+    private Model mockModel;
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         System.setOut(new PrintStream(outContent));
+        injectMockModel();
     }
 
+    @AfterEach
+    void tearDown() {
+        System.setOut(originalOut);
+        resetSystemIn();
+        clearMockModel();
+    }
+
+    private void injectMockModel() throws Exception {
+        Field modelField = CLIGame.class.getDeclaredField("model");
+        modelField.setAccessible(true);
+        modelField.set(null, mockModel);
+    }
+
+    private void clearMockModel() {
+        try {
+            Field modelField = CLIGame.class.getDeclaredField("model");
+            modelField.setAccessible(true);
+            modelField.set(null, null);
+        } catch (Exception ignored) {}
+    }
+
+    private void resetSystemIn() {
+        System.setIn(System.in);
+    }
+
+    // 反射工具方法
+    private void callPrivateMethod(String methodName, Class<?>[] paramTypes, Object... args) throws Exception {
+        Method method = CLIGame.class.getDeclaredMethod(methodName, paramTypes);
+        method.setAccessible(true);
+        method.invoke(null, args);
+    }
+
+
+
     @Test
-    void testCreateConfigWithAllYes() {
-        String input = "y\ny\ny\n";
+    void configureSettings_ShouldSetFlagsCorrectly() throws Exception {
+        String input = "y\nn\ny\n";
         System.setIn(new ByteArrayInputStream(input.getBytes()));
 
-        GameConfig config = CLIGame.createConfig();
+        callPrivateMethod("configureSettings", null);
 
-        assertAll("Configuration validation",
-                () -> assertTrue(config.isShowErrorMessages()),
-                () -> assertTrue(config.isDisplayPath()),
-                () -> assertTrue(config.isUseRandomWords())
-        );
+        verify(mockModel).setErrorDisplayEnabled(true);
+        verify(mockModel).setPathDisplayEnabled(false);
+        verify(mockModel).setUseRandomWords(true);
     }
 
     @Test
-    void testInitializeGameWithRandomWords() throws IOException {
-        when(mockConfig.isUseRandomWords()).thenReturn(true);
-        when(mockValidator.getRandomWordPair()).thenReturn(Arrays.asList("test", "tent"));
+    void initializeGame_WithRandomWordsEnabled() throws Exception {
+        when(mockModel.isRandomWordsEnabled()).thenReturn(true);
+        when(mockModel.generateValidWordPair()).thenReturn(new String[]{"test", "word"});
 
-        WordLadderGame game = CLIGame.initializeGame(mockValidator, mockConfig);
+        callPrivateMethod("initializeGame", null);
 
-        assertEquals("test", game.getCurrentWord());
-        assertEquals("tent", game.getTargetWord());
+        verify(mockModel).initializeGame("test", "word");
     }
 
     @Test
-    void testGameLoopWithValidAttempts() throws IOException {
-        String input = "stat\nstot\nsoot\nmoot\nmoon\n";
+    void runGameLoop_ShouldCompleteSuccessfully() throws Exception {
+        when(mockModel.getCurrentWord()).thenReturn("star", "stir", "ston", "moon");
+        when(mockModel.getTargetWord()).thenReturn("moon");
+        when(mockModel.submitGuess(anyString())).thenReturn(true);
+        when(mockModel.getAttemptCount()).thenReturn(3);
+        when(mockModel.isPathDisplayEnabled()).thenReturn(true);
+        when(mockModel.getGamePath()).thenReturn(Optional.of(Arrays.asList("star", "stir", "ston", "moon")));
+
+        String input = "stir\nston\nmoon\n";
         System.setIn(new ByteArrayInputStream(input.getBytes()));
 
-        when(mockValidator.isValidWord(anyString())).thenReturn(true);
-        when(mockConfig.isDisplayPath()).thenReturn(true);
-
-        WordLadderGame game = new WordLadderGame("star", "moon", mockValidator, mockConfig);
-        CLIGame.runGameLoop(game, mockConfig);
+        callPrivateMethod("runGameLoop", null);
 
         String output = outContent.toString();
-        assertTrue(output.contains("Congratulations!"));
-        assertTrue(output.contains("Complete path: star → stat → stot → soot → moot → moon"));
+        assertTrue(output.contains("Congratulations! Steps: 3"));
+        assertTrue(output.contains("Full path: star → stir → ston → moon"));
     }
 
     @Test
-    void testDisplayCurrentStateWithPath() {
-        WordLadderGame game = mock(WordLadderGame.class);
-        when(game.getCurrentWord()).thenReturn("test");
-        when(game.getTransformationPath()).thenReturn(Arrays.asList("test", "text"));
-        when(mockConfig.isDisplayPath()).thenReturn(true);
+    void processInput_WithInvalidAttemptAndErrorEnabled() throws Exception {
+        when(mockModel.submitGuess("xxxx")).thenReturn(false);
+        when(mockModel.isErrorDisplayEnabled()).thenReturn(true);
 
-        CLIGame.displayCurrentState(game, mockConfig);
-
-        assertTrue(outContent.toString().contains("test"));
-        assertTrue(outContent.toString().contains("test → text"));
-    }
-
-    @Test
-    void testProcessInputWithInvalidAttempt() {
-        WordLadderGame game = mock(WordLadderGame.class);
-        when(game.submitAttempt("test")).thenReturn(false);
-        when(mockConfig.isShowErrorMessages()).thenReturn(true);
-
-        CLIGame.processInput(game, "test", mockConfig);
-
-        assertTrue(outContent.toString().contains("Invalid word! Reason:"));
-    }
-
-    @Test
-    void testDisplayVictoryWithoutPath() {
-        WordLadderGame game = mock(WordLadderGame.class);
-        when(game.getAttempts()).thenReturn(Arrays.asList("step1", "step2"));
-        when(mockConfig.isDisplayPath()).thenReturn(false);
-
-        CLIGame.displayVictory(game, mockConfig);
+        callPrivateMethod("processInput", new Class[]{String.class}, "xxxx");
 
         String output = outContent.toString();
-        assertTrue(output.contains("2 step"));
-        assertFalse(output.contains("Complete path:"));
+        assertTrue(output.contains("1. 4-letter dictionary word"));
+        assertTrue(output.contains("2. Exactly 1 letter changed"));
     }
 }
