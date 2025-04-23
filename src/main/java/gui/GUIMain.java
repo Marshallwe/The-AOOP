@@ -5,15 +5,17 @@ import gui.model.Model;
 import gui.view.GameView;
 import javax.swing.*;
 
-
 public class GUIMain {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
                 Model model = new Model("dictionary.txt");
+                GameView view = new GameView();
+
+                model.addObserver(view);
                 model.initializeGame("star", "moon");
 
-                GameView view = new GameView();
+                view.initializeWithModel(model);
                 new GameController(view, model);
             } catch (Exception e) {
                 showErrorDialog("Initialization Error: " + e.getMessage());

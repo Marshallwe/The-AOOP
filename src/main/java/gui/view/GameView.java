@@ -21,19 +21,29 @@ public class GameView extends JFrame implements Observer {
     private final JLabel targetLabel = new JLabel("Target:");
     private final JLabel pathLabel = new JLabel("Path:");
     private final ColorMapper colorMapper = new ColorMapper();
+    private boolean windowInitialized = false;
+    private Model model;
 
     public GameView() {
         initializeUIComponents();
+    }
+
+    public void initializeWithModel(Model model) {
+        this.model = model;
+        resetUI(model.getCurrentWord());
+        updatePersistentDisplays(model);
     }
 
     @Override
     public void update(Observable o, Object arg) {
         if (o instanceof Model) {
             Model model = (Model) o;
-            if (arg instanceof Model.NotificationType) {
-                handleModelNotification(model, (Model.NotificationType) arg);
-            }
-            updatePersistentDisplays(model);
+            SwingUtilities.invokeLater(() -> {
+                if (arg instanceof Model.NotificationType) {
+                    handleModelNotification(model, (Model.NotificationType) arg);
+                }
+                updatePersistentDisplays(model);
+            });
         }
     }
 
@@ -48,14 +58,18 @@ public class GameView extends JFrame implements Observer {
     private void handleModelNotification(Model model, Model.NotificationType type) {
         switch (type) {
             case STATE_UPDATE:
-                updateCharacterStatus(model.getCharacterFeedback(model.getCurrentWord()), model.getCurrentWord());
-                updatePathDisplay(model);
+                updateCharacterStatus(
+                        model.getCharacterFeedback(model.getCurrentWord()),
+                        model.getCurrentWord()
+                );
+                updatePathDisplay();
                 break;
             case CONFIG_CHANGED:
                 setPathVisibility(model.isPathDisplayEnabled());
                 break;
             case GAME_RESET:
                 resetUI(model.getCurrentWord());
+                updatePathDisplay();
                 break;
             case GAME_WON:
                 showGameResultDialog(model.getAttemptCount());
@@ -102,25 +116,21 @@ public class GameView extends JFrame implements Observer {
     }
 
     public void updateCharacterStatus(List<Model.CharacterStatus> statuses, String word) {
-        SwingUtilities.invokeLater(() -> {
-            for (int i = 0; i < 4; i++) {
-                characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
-                characterLabels[i].setText(i < word.length()
-                        ? String.valueOf(word.charAt(i)).toUpperCase()
-                        : "_");
-            }
-        });
+        for (int i = 0; i < 4; i++) {
+            characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
+            characterLabels[i].setText(i < word.length()
+                    ? String.valueOf(word.charAt(i)).toUpperCase()
+                    : "_");
+        }
     }
 
     public void resetUI(String currentWord) {
-        SwingUtilities.invokeLater(() -> {
-            String word = currentWord.toLowerCase();
-            for (int i = 0; i < 4; i++) {
-                characterLabels[i].setText(String.valueOf(word.charAt(i)));
-                characterLabels[i].setBackground(Color.WHITE);
-            }
-            clearInputField();
-        });
+        String word = currentWord.toUpperCase();
+        for (int i = 0; i < 4; i++) {
+            characterLabels[i].setText(String.valueOf(word.charAt(i)));
+            characterLabels[i].setBackground(Color.WHITE);
+        }
+        clearInputField();
     }
 
     public void addConfigToggle(String label, boolean initialState,
@@ -275,9 +285,11 @@ public class GameView extends JFrame implements Observer {
         }
     }
 
-    private void updatePathDisplay(Model model) {
-        if (model.isPathDisplayEnabled()) {
-            model.getGamePath().ifPresent(path -> pathLabel.setText("Path: " + String.join(" → ", path)));
+    private void updatePathDisplay() {
+        if (model != null && model.isPathDisplayEnabled()) {
+            model.getGamePath().ifPresent(path ->
+                    pathLabel.setText("Path: " + String.join(" → ", path))
+            );
         } else {
             pathLabel.setText("Path: ");
         }
@@ -301,10 +313,14 @@ public class GameView extends JFrame implements Observer {
     }
 
     public void setupWindow() {
-        pack();
-        setLocationRelativeTo(null);
-        setVisible(true);
+        if (!windowInitialized) {
+            pack();
+            setLocationRelativeTo(null);
+            setVisible(true);
+            windowInitialized = true;
+        }
     }
+
 
     public void addConfigControl(Component comp) {
         configPanel.add(comp);

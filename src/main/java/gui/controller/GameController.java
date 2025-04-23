@@ -11,7 +11,7 @@ public class GameController implements Observer {
     public interface ConfigToggleHandler {
         void toggle(boolean enabled);
     }
-
+    private boolean windowInitialized = false;
     private final GameView view;
     private final Model model;
 
@@ -26,7 +26,10 @@ public class GameController implements Observer {
         setupActionHandlers();
         initializeConfigControls();
         refreshGameState();
-        view.setupWindow();
+        if (!windowInitialized) {
+            view.setupWindow();
+            windowInitialized = true;
+        }
     }
 
     private void initializeConfigControls() {
@@ -180,6 +183,8 @@ public class GameController implements Observer {
                     view.showFeedbackDialog("Game Error", e.getMessage(), true);
                 }
             }
+        }else{
+            System.exit(0);
         }
     }
 
