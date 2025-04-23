@@ -16,6 +16,7 @@ public class GameView extends JFrame implements Observer {
     private final JTextField inputField = new JTextField(4);
     private final JButton submitButton = new JButton("Submit");
     private final JButton resetButton = new JButton("Reset");
+    private final JButton newGameButton = new JButton("New Game");
     private final JPanel configPanel = new JPanel();
     private final JLabel startLabel = new JLabel("Start:");
     private final JLabel targetLabel = new JLabel("Target:");
@@ -132,7 +133,9 @@ public class GameView extends JFrame implements Observer {
         }
         clearInputField();
     }
-
+    public void setNewGameHandler(ActionListener listener) {
+        newGameButton.addActionListener(listener);
+    }
     public void addConfigToggle(String label, boolean initialState,
                                 GameController.ConfigToggleHandler handler) {
         JCheckBox toggle = new JCheckBox(label, initialState);
@@ -145,6 +148,7 @@ public class GameView extends JFrame implements Observer {
         setTargetWordDisplay(model.getTargetWord());
         setResetButtonEnabled(model.getAttemptCount() > 0);
     }
+
 
     private void initializeUIComponents() {
         configureWindowSettings();
@@ -240,6 +244,7 @@ public class GameView extends JFrame implements Observer {
         JPanel panel = new JPanel();
         panel.add(submitButton);
         panel.add(resetButton);
+        panel.add(newGameButton);
         return panel;
     }
 
@@ -265,6 +270,8 @@ public class GameView extends JFrame implements Observer {
 
     private JButton createKeyboardButton(String key) {
         JButton button = new JButton(key.toUpperCase());
+        button.setBackground(new Color(64, 64, 64));
+        button.setForeground(Color.WHITE);
         button.setPreferredSize(new Dimension(
                 key.equals("Enter") ? 100 : 50, 50
         ));

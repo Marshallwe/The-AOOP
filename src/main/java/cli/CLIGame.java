@@ -70,6 +70,13 @@ public class CLIGame {
     }
 
     private static void processInput(String input) {
+        if (input.length() != 4) {
+            if (model.isErrorDisplayEnabled()) {
+                System.out.println("Error: Input must be exactly 4 letters\n");
+            }
+            return;
+        }
+
         if (model.submitGuess(input)) {
             displayFeedback(model.getCharacterFeedback(input));
         } else {
@@ -97,19 +104,20 @@ public class CLIGame {
     private static void handleInvalidAttempt() {
         if (model.isErrorDisplayEnabled()) {
             System.out.println("Invalid! Must be:");
-            System.out.println("1. 4-letter dictionary word");
-            System.out.println("2. Exactly 1 letter changed\n");
-        } else {
-            System.out.println("Invalid input, try again\n");
+            System.out.println("1. Valid dictionary word");
+            System.out.println("2. Exactly 1 letter changed");
+            System.out.println("3. Not a previous attempt\n");
         }
     }
-
     private static void displayVictory() {
-        System.out.println("\n\u001B[32mCongratulations! Steps: "
-                + model.getAttemptCount() + "\u001B[0m");
+        String victoryBanner = "\n\u001B[32m[ VICTORY ] Achieved in "
+                + model.getAttemptCount() + " steps\u001B[0m";
+        System.out.println(victoryBanner);
 
-        model.getGamePath().ifPresent(path ->
-                System.out.println("Full path: " + String.join(" → ", path))
-        );
+        if (model.isPathDisplayEnabled()) {
+            model.getGamePath().ifPresent(path ->
+                    System.out.println("Complete path: " + String.join(" → ", path))
+            );
+        }
     }
 }

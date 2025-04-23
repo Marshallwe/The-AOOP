@@ -75,6 +75,7 @@ public class GameController implements Observer {
     private void setupActionHandlers() {
         view.setSubmitHandler(this::handleGuessSubmission);
         view.setResetHandler(e -> model.resetGame());
+        view.setNewGameHandler(e -> startNewGame());
     }
 
     @Override
@@ -190,8 +191,12 @@ public class GameController implements Observer {
 
     private void startNewGame() {
         try {
-            String[] words = model.generateValidWordPair();
-            model.initializeGame(words[0], words[1]);
+            if (model.isRandomWordsEnabled()) {
+                String[] words = model.generateValidWordPair();
+                model.initializeGame(words[0], words[1]);
+            } else {
+                model.initializeGame("star", "moon");
+            }
             updateStartDisplay();
             updateTargetDisplay();
             updatePathDisplay();
