@@ -67,6 +67,7 @@ public class GameView extends JFrame implements Observer {
                 break;
             case CONFIG_CHANGED:
                 setPathVisibility(model.isPathDisplayEnabled());
+                updatePathDisplay();
                 break;
             case GAME_RESET:
                 resetUI(model.getCurrentWord());
@@ -293,13 +294,18 @@ public class GameView extends JFrame implements Observer {
     }
 
     private void updatePathDisplay() {
-        if (model != null && model.isPathDisplayEnabled()) {
-            model.getGamePath().ifPresent(path ->
-                    pathLabel.setText("Path: " + String.join(" → ", path))
-            );
-        } else {
-            pathLabel.setText("Path: ");
+        if (model != null) {
+            if (model.isPathDisplayEnabled()) {
+                model.getGamePath().ifPresent(path -> {
+                    String pathText = String.join(" → ", path);
+                    pathLabel.setText("Path: " + pathText);
+                });
+            } else {
+                pathLabel.setText("Path: ");
+            }
         }
+        pathLabel.revalidate();
+        pathLabel.repaint();
     }
 
     private void deleteLastCharacter() {
