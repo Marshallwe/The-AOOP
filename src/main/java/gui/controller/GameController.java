@@ -7,14 +7,30 @@ import java.awt.event.ActionEvent;
 import java.util.Observable;
 import java.util.Observer;
 
+/**
+ * MVC Controller component for managing game logic and coordinating between
+ * Model and View. Handles user input, configuration changes, and game state updates.
+ */
 public class GameController implements Observer {
+
+    /** Functional interface for handling configuration toggle events */
     public interface ConfigToggleHandler {
+        /**
+         * Handles configuration toggle changes
+         * @param enabled New state of the configuration option
+         */
         void toggle(boolean enabled);
     }
+
     private boolean windowInitialized = false;
     private final GameView view;
     private final Model model;
 
+    /**
+     * Constructs a GameController with specified view and model
+     * @param view GameView component to manage
+     * @param model Model component containing game logic
+     */
     public GameController(GameView view, Model model) {
         this.view = view;
         this.model = model;
@@ -22,6 +38,7 @@ public class GameController implements Observer {
         initializeComponents();
     }
 
+    /** Initializes UI components and game state */
     private void initializeComponents() {
         setupActionHandlers();
         initializeConfigControls();
@@ -32,22 +49,27 @@ public class GameController implements Observer {
         }
     }
 
+    /** Sets up configuration controls in the view */
     private void initializeConfigControls() {
+        // Error display toggle
         view.addConfigToggle("Show Errors", model.isErrorDisplayEnabled(),
                 enabled -> model.setErrorDisplayEnabled(enabled));
 
+        // Path visibility toggle
         view.addConfigToggle("Show Path", model.isPathDisplayEnabled(),
                 enabled -> model.setPathDisplayEnabled(enabled));
 
+        // Random words mode toggle
         view.addConfigToggle("Random Words", model.isRandomWordsEnabled(),
                 enabled -> {
                     model.setUseRandomWords(enabled);
                     handleConfigChange();
                 });
 
-        view.addConfigSpacer(20);
+        view.addConfigSpacer(20);  // Visual separator
     }
 
+    /** Handles configuration changes requiring game reset */
     private void handleConfigChange() {
         if (model.isRandomWordsEnabled()) {
             startNewGame();
@@ -60,6 +82,7 @@ public class GameController implements Observer {
         }
     }
 
+    /** Refreshes all game state displays */
     private void refreshGameState() {
         updateStartDisplay();
         updateTargetDisplay();
@@ -68,16 +91,23 @@ public class GameController implements Observer {
         view.setResetButtonEnabled(model.getAttemptCount() > 0);
     }
 
+    /** Updates starting word display */
     private void updateStartDisplay() {
         view.setStartWordDisplay(model.getStartWord());
     }
 
+    /** Configures event handlers for user actions */
     private void setupActionHandlers() {
         view.setSubmitHandler(this::handleGuessSubmission);
         view.setResetHandler(e -> model.resetGame());
         view.setNewGameHandler(e -> startNewGame());
     }
 
+    /**
+     * Observer pattern implementation for model changes
+     * @param o Observable object (Model)
+     * @param arg Notification type
+     */
     @Override
     public void update(Observable o, Object arg) {
         if (arg instanceof Model.NotificationType) {
@@ -98,6 +128,7 @@ public class GameController implements Observer {
         }
     }
 
+    /** Handles word submission from the view */
     private void handleGuessSubmission(ActionEvent event) {
         String input = view.getUserInput().trim().toLowerCase();
         if (!validateInputLength(input)) return;
@@ -109,6 +140,11 @@ public class GameController implements Observer {
         }
     }
 
+    /**
+     * Validates user input length
+     * @param input User-provided word
+     * @return true if valid length, false otherwise
+     */
     private boolean validateInputLength(String input) {
         if (input.length() != 4) {
             view.showFeedbackDialog("Invalid Input", "Must be 4 characters", true);
@@ -117,6 +153,7 @@ public class GameController implements Observer {
         return true;
     }
 
+    /** Updates UI components after model state change */
     private void handleStateUpdate() {
         updateCharacterFeedback();
         updatePathDisplay();
@@ -127,6 +164,7 @@ public class GameController implements Observer {
         }
     }
 
+    /** Updates character position feedback visualization */
     private void updateCharacterFeedback() {
         String current = model.getCurrentWord();
         view.updateCharacterStatus(
@@ -135,6 +173,7 @@ public class GameController implements Observer {
         );
     }
 
+    /** Updates transformation path display based on config */
     private void updatePathDisplay() {
         if (model.isPathDisplayEnabled()) {
             model.getGamePath().ifPresent(path ->
@@ -145,6 +184,7 @@ public class GameController implements Observer {
         }
     }
 
+    /** Shows invalid attempt feedback dialog when enabled */
     private void showInvalidAttemptFeedback() {
         if (model.isErrorDisplayEnabled()) {
             String message = "Invalid attempt! Requirements:\n" +
@@ -155,6 +195,7 @@ public class GameController implements Observer {
         }
     }
 
+    /** Handles game reset event */
     private void handleGameReset() {
         view.resetUI(model.getCurrentWord());
         view.setResetButtonEnabled(false);
@@ -164,17 +205,20 @@ public class GameController implements Observer {
         updatePathDisplay();
     }
 
+    /** Updates target word display */
     private void updateTargetDisplay() {
         view.setTargetWordDisplay(model.getTargetWord());
     }
 
+    /** Updates path visibility based on config */
     private void updatePathVisibility() {
         view.setPathVisibility(model.isPathDisplayEnabled());
     }
 
+    /** Handles game completion scenario */
     private void handleGameWon() {
         int choice = view.showGameResultDialog(model.getAttemptCount());
-        if (choice == 0) {
+        if (choice == 0) {  // User chose to restart
             if (model.isRandomWordsEnabled()) {
                 startNewGame();
             } else {
@@ -184,11 +228,12 @@ public class GameController implements Observer {
                     view.showFeedbackDialog("Game Error", e.getMessage(), true);
                 }
             }
-        }else{
+        } else {  // User chose to exit
             System.exit(0);
         }
     }
 
+    /** Starts new game with current configuration */
     private void startNewGame() {
         try {
             if (model.isRandomWordsEnabled()) {

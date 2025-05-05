@@ -19,71 +19,104 @@ class GameControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        // Initialize mocks and inject dependencies
         mockModel = Mockito.mock(Model.class);
         mockView = Mockito.mock(GameView.class);
 
+        // Create controller with mocked dependencies
         controller = new GameController(mockView, mockModel);
     }
 
     @Test
     void testInitialization() {
-        verify(mockView, times(3)).addConfigToggle(anyString(), anyBoolean(), any());
-        verify(mockView).addConfigSpacer(20);
-        verify(mockView).setupWindow();
+        // Verify view configuration during initialization
+        verify(mockView, times(3)).addConfigToggle(
+                anyString(),  // Setting name
+                anyBoolean(), // Default state
+                any()         // Change listener
+        );
+        verify(mockView).addConfigSpacer(20);  // Verify UI spacing
+        verify(mockView).setupWindow();        // Verify window setup
     }
 
     @Test
     void testValidGuessSubmission() throws Exception {
-        // 设置模拟行为
+        // Configure mock behavior
         when(mockView.getUserInput()).thenReturn("test");
         when(mockModel.submitGuess("test")).thenReturn(true);
 
-        // 通过反射调用私有方法
+        // Simulate guess submission action
         invokePrivateMethod("handleGuessSubmission", new ActionEvent(this, 0, "submit"));
 
-        verify(mockView).clearInputField();
-        verify(mockModel).submitGuess("test");
+        // Verify expected interactions
+        verify(mockView).clearInputField();       // Input field cleared
+        verify(mockModel).submitGuess("test");    // Guess processed
     }
 
     @Test
     void testInvalidInputHandling() throws Exception {
-        // 测试短输入
+        // Test short input handling
         when(mockView.getUserInput()).thenReturn("abc");
+
+        // Trigger submission handling
         invokePrivateMethod("handleGuessSubmission", new ActionEvent(this, 0, "submit"));
 
-        verify(mockView).showFeedbackDialog(eq("Invalid Input"), anyString(), eq(true));
+        // Verify error feedback
+        verify(mockView).showFeedbackDialog(
+                eq("Invalid Input"),   // Dialog title
+                anyString(),          // Error message
+                eq(true)              // Warning type
+        );
+        // Ensure no submission occurred
         verify(mockModel, never()).submitGuess(anyString());
     }
 
-
-
-
     @Test
     void testStateUpdateProcessing() throws Exception {
+        // Configure mock responses
         when(mockModel.getCurrentWord()).thenReturn("test");
         when(mockModel.getTargetWord()).thenReturn("test");
 
+        // Trigger state update
         invokePrivateMethod("handleStateUpdate");
 
-        verify(mockView).updateCharacterStatus(anyList(), eq("test"));
-        verify(mockView).setResetButtonEnabled(true);
+        // Verify UI updates
+        verify(mockView).updateCharacterStatus(
+                anyList(),   // Expected character status list
+                eq("test")   // Current word display
+        );
+        verify(mockView).setResetButtonEnabled(true);  // Reset button state
     }
 
     @Test
     void testErrorFeedbackSuppression() throws Exception {
+        // Configure error display suppression
         when(mockModel.isErrorDisplayEnabled()).thenReturn(false);
+
+        // Attempt to show feedback
         invokePrivateMethod("showInvalidAttemptFeedback");
 
-        verify(mockView, never()).showFeedbackDialog(anyString(), anyString(), anyBoolean());
+        // Verify no UI interaction occurred
+        verify(mockView, never()).showFeedbackDialog(
+                anyString(),   // Title
+                anyString(),   // Message
+                anyBoolean()   // Type
+        );
     }
 
-    // 反射工具方法
+    /**
+     * Helper method for invoking private controller methods
+     * @param methodName Name of the private method to test
+     * @param args Arguments to pass to the method
+     */
     private void invokePrivateMethod(String methodName, Object... args) throws Exception {
+        // Prepare parameter types
         Class<?>[] paramTypes = new Class[args.length];
         for (int i = 0; i < args.length; i++) {
             paramTypes[i] = args[i].getClass();
         }
 
+        // Access and execute private method
         Method method = GameController.class.getDeclaredMethod(methodName, paramTypes);
         method.setAccessible(true);
         method.invoke(controller, args);
