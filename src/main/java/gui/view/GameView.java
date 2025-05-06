@@ -25,7 +25,9 @@ import java.util.Observer;
  */
 public class GameView extends JFrame implements Observer {
     // UI Components
+
     private final JLabel[] characterLabels = new JLabel[4];
+    private final JLabel[] targetCharacterLabels = new JLabel[4];
     private final JTextField inputField = new JTextField(4);
     private final JButton submitButton = new JButton("Submit");
     private final JButton resetButton = new JButton("Reset");
@@ -169,6 +171,11 @@ public class GameView extends JFrame implements Observer {
      */
     public void setTargetWordDisplay(String word) {
         targetLabel.setText("Target: " + word.toUpperCase());
+        String targetWord = word.toUpperCase();
+        for (int i = 0; i < 4; i++) {
+            targetCharacterLabels[i].setText(String.valueOf(targetWord.charAt(i)));
+            targetCharacterLabels[i].setBackground(colorMapper.getColor(Model.CharacterStatus.CORRECT_POSITION));
+        }
     }
 
     /**
@@ -186,7 +193,11 @@ public class GameView extends JFrame implements Observer {
      */
     public void updateCharacterStatus(List<Model.CharacterStatus> statuses, String word) {
         for (int i = 0; i < 4; i++) {
-            characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
+            if (statuses != null && i < statuses.size()) {
+                characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
+            } else {
+                characterLabels[i].setBackground(new Color(200, 200, 200));
+            }
             characterLabels[i].setText(i < word.length()
                     ? String.valueOf(word.charAt(i)).toUpperCase()
                     : "_");
@@ -201,7 +212,10 @@ public class GameView extends JFrame implements Observer {
         String word = currentWord.toUpperCase();
         for (int i = 0; i < 4; i++) {
             characterLabels[i].setText(String.valueOf(word.charAt(i)));
-            characterLabels[i].setBackground(Color.WHITE);
+            characterLabels[i].setBackground(new Color(200, 200, 200));
+        }
+        if (model != null) {
+            setTargetWordDisplay(model.getTargetWord());
         }
         clearInputField();
     }
@@ -329,13 +343,36 @@ public class GameView extends JFrame implements Observer {
      * @return Panel with 4 character slots
      */
     private JPanel createCharacterDisplay() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
-        panel.setBorder(BorderFactory.createTitledBorder("Character Status"));
+        // 使用垂直盒子布局并添加紧凑间距
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Character Status"),
+                BorderFactory.createEmptyBorder(10, 15, 10, 15)
+        ));
+
+        // 当前单词行
+        JPanel currentRow = new JPanel();
+        currentRow.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        currentRow.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
         for (int i = 0; i < 4; i++) {
             characterLabels[i] = createCharacterLabel();
-            panel.add(characterLabels[i]);
+            currentRow.add(characterLabels[i]);
         }
-        return panel;
+
+        // 目标单词行（使用相同布局）
+        JPanel targetRow = new JPanel();
+        targetRow.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        targetRow.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+        for (int i = 0; i < 4; i++) {
+            targetCharacterLabels[i] = createCharacterLabel();
+            targetCharacterLabels[i].setBackground(colorMapper.getColor(Model.CharacterStatus.CORRECT_POSITION));
+            targetRow.add(targetCharacterLabels[i]);
+        }
+
+        mainPanel.add(currentRow);
+        mainPanel.add(targetRow);
+        return mainPanel;
     }
 
     /**
@@ -602,7 +639,7 @@ public class GameView extends JFrame implements Observer {
     private static class ColorMapper {
         private static final Color CORRECT = new Color(99, 190, 123);
         private static final Color PRESENT = new Color(255, 212, 100);
-        private static final Color ABSENT = new Color(120, 124, 126);
+        private static final Color ABSENT = new Color(200, 200, 200);
 
         /**
          * Gets color for character evaluation status.
