@@ -417,8 +417,8 @@ public class GameView extends JFrame implements Observer {
      */
     private JButton createKeyboardButton(String key) {
         JButton button = new JButton(key.toUpperCase());
-        button.setBackground(new Color(64, 64, 64));
-        button.setForeground(Color.WHITE);
+        button.setBackground(new Color(200, 200, 200));
+        button.setForeground(Color.BLACK);
         button.setPreferredSize(new Dimension(
                 key.equals("Enter") ? 100 : 50, 50
         ));
