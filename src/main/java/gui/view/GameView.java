@@ -1,4 +1,3 @@
-// GameView.java
 package gui.view;
 
 import gui.controller.GameController;
@@ -10,25 +9,28 @@ import java.awt.event.ActionListener;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
-
 /**
- * The main view component for the Word Ladder game GUI implementing the Observer pattern.
- * Manages user interface rendering, input handling, and model state visualization.
+ * The primary view component for the Word Ladder game interface.
+ * Handles UI presentation, user input processing, and model state visualization.
+ * Implements Observer pattern to receive updates from the game model.
  *
- * <p>Key responsibilities:
- * <ul>
- *   <li>Displaying game state including start/target words and transformation path</li>
- *   <li>Providing interactive components for word input and game control</li>
- *   <li>Managing configuration toggles and visual feedback</li>
- *   <li>Coordinating with Model through Observer pattern updates</li>
- * </ul>
  */
-public class GameView extends JFrame implements Observer {
-    // UI Components
 
+public class GameView extends JFrame implements Observer {
+    // Region: UI Component Declarations
+
+    /** Display labels for current word characters (4-letter positions) */
     private final JLabel[] characterLabels = new JLabel[4];
+    /** Display labels for target word characters (4-letter positions) */
     private final JLabel[] targetCharacterLabels = new JLabel[4];
+    /** Panel containing transformation path visualization */
+    private JPanel middleWordsPanel;
+    /** Toggle flag for path visualization visibility */
+    private boolean showPath = false;
+
+    /** Text input field for word entry */
     private final JTextField inputField = new JTextField(4);
+    /** Action buttons for game control */
     private final JButton submitButton = new JButton("Submit");
     private final JButton resetButton = new JButton("Reset");
     private final JButton newGameButton = new JButton("New Game");
@@ -39,34 +41,34 @@ public class GameView extends JFrame implements Observer {
     private final ColorMapper colorMapper = new ColorMapper();
     private boolean windowInitialized = false;
     private Model model;
-
     /**
-     * Constructs the game view and initializes UI components.
-     * Sets up the main window layout and component hierarchy.
+     * Constructs game view and initializes UI components.
      */
     public GameView() {
         initializeUIComponents();
     }
-
     /**
-     * Links the view to a game model and initializes display state.
+     * Links view to game model and initializes display state.
      * @param model The game model to observe and visualize
      */
+
     public void initializeWithModel(Model model) {
         this.model = model;
+        this.showPath = model.isPathDisplayEnabled();
         resetUI(model.getCurrentWord());
         updatePersistentDisplays(model);
+        updatePathDisplay();
     }
-
     /**
-     * Observer pattern implementation for model updates.
-     * @param o The observable object (Model instance)
-     * @param arg Notification payload (NotificationType enum)
+     * Receives model state updates and triggers UI refresh.
+     * @param o Observable object (game model)
+     * @param arg Notification type or data payload
      */
     @Override
     public void update(Observable o, Object arg) {
         if (o instanceof Model) {
             Model model = (Model) o;
+            // Ensure UI updates happen on EDT
             SwingUtilities.invokeLater(() -> {
                 if (arg instanceof Model.NotificationType) {
                     handleModelNotification(model, (Model.NotificationType) arg);
@@ -75,58 +77,65 @@ public class GameView extends JFrame implements Observer {
             });
         }
     }
-
     /**
-     * Sets the handler for word submission events.
-     * @param listener ActionListener to handle submit button clicks
+     * Sets submit button action handler.
+     * @param listener ActionListener to handle submit events
      */
     public void setSubmitHandler(ActionListener listener) {
         submitButton.addActionListener(listener);
     }
-
     /**
-     * Sets the handler for game reset events.
-     * @param listener ActionListener to handle reset button clicks
+     * Sets reset button action handler.
+     * @param listener ActionListener to handle reset events
      */
+
     public void setResetHandler(ActionListener listener) {
         resetButton.addActionListener(listener);
     }
-
     /**
-     * Handles different types of model notifications by updating specific UI components.
-     * @param model The current game model
-     * @param type The type of model notification received
+     * Processes model notifications and updates UI accordingly.
+     * @param model Current game model instance
+     * @param type Type of model notification
      */
+
     private void handleModelNotification(Model model, Model.NotificationType type) {
         switch (type) {
+            case CONFIG_CHANGED:
+                // Update path display visibility
+                boolean newState = model.isPathDisplayEnabled();
+                if (this.showPath != newState) {
+                    this.showPath = newState;
+                    updatePathDisplay();
+                }
+                break;
             case STATE_UPDATE:
+                // Refresh character status and path
                 updateCharacterStatus(
                         model.getCharacterFeedback(model.getCurrentWord()),
                         model.getCurrentWord()
                 );
                 updatePathDisplay();
                 break;
-            case CONFIG_CHANGED:
-                setPathVisibility(model.isPathDisplayEnabled());
-                updatePathDisplay();
-                break;
             case GAME_RESET:
+                // Reset UI to initial state
                 resetUI(model.getCurrentWord());
                 updatePathDisplay();
                 break;
             case GAME_WON:
+                // Show victory dialog
                 showGameResultDialog(model.getAttemptCount());
                 break;
             case ERROR:
+                // Display error message
                 showFeedbackDialog("Error", model.getLastErrorMessage(), true);
                 break;
         }
     }
 
     /**
-     * Displays victory dialog with game completion options.
-     * @param attemptCount Number of steps taken to win
-     * @return User's choice (0 = new game, 1 = exit)
+     * Displays game completion dialog with restart options.
+     * @param attemptCount Number of attempts taken to win
+     * @return User selection (0 = new game, 1 = exit)
      */
     public int showGameResultDialog(int attemptCount) {
         String message = String.format("Success! Achieved in %d steps\nStart new game?", attemptCount);
@@ -143,10 +152,10 @@ public class GameView extends JFrame implements Observer {
     }
 
     /**
-     * Displays a modal feedback/error dialog.
-     * @param title Dialog title
-     * @param message Content message
-     * @param isError Whether to use error styling (true) or info styling (false)
+     * Displays feedback/error message dialog.
+     * @param title Dialog window title
+     * @param message Information to display
+     * @param isError True for error styling, false for info
      */
     public void showFeedbackDialog(String title, String message, boolean isError) {
         JOptionPane.showMessageDialog(
@@ -156,48 +165,48 @@ public class GameView extends JFrame implements Observer {
                 isError ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE
         );
     }
-
     /**
-     * Updates the display of the starting word.
-     * @param word Current starting word in uppercase
+     * Updates start word display.
+     * @param word Current start word
      */
     public void setStartWordDisplay(String word) {
         startLabel.setText("Start: " + word.toUpperCase());
     }
-
     /**
-     * Updates the display of the target word.
-     * @param word Current target word in uppercase
+     * Updates target word display with colored indicators.
+     * @param word Current target word
      */
     public void setTargetWordDisplay(String word) {
         targetLabel.setText("Target: " + word.toUpperCase());
         String targetWord = word.toUpperCase();
         for (int i = 0; i < 4; i++) {
             targetCharacterLabels[i].setText(String.valueOf(targetWord.charAt(i)));
+            // Target word always shows correct position styling
             targetCharacterLabels[i].setBackground(colorMapper.getColor(Model.CharacterStatus.CORRECT_POSITION));
         }
     }
-
     /**
-     * Updates the transformation path display.
-     * @param path Formatted string of transformation steps
+     * Updates transformation path display.
+     * @param path Colon-separated transformation sequence
      */
     public void setTransformationPathDisplay(String path) {
         pathLabel.setText("Path: " + path);
     }
 
     /**
-     * Updates character status indicators with color coding.
-     * @param statuses List of character evaluation states
+     * Updates character status indicators with feedback colors.
+     * @param statuses List of character evaluation results
      * @param word Current word being displayed
      */
     public void updateCharacterStatus(List<Model.CharacterStatus> statuses, String word) {
         for (int i = 0; i < 4; i++) {
+            // Set background color based on evaluation status
             if (statuses != null && i < statuses.size()) {
                 characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
             } else {
                 characterLabels[i].setBackground(new Color(200, 200, 200));
             }
+            // Display character or placeholder
             characterLabels[i].setText(i < word.length()
                     ? String.valueOf(word.charAt(i)).toUpperCase()
                     : "_");
@@ -205,8 +214,8 @@ public class GameView extends JFrame implements Observer {
     }
 
     /**
-     * Resets UI elements to initial state.
-     * @param currentWord Word to display in character slots
+     * Resets UI components to initial state.
+     * @param currentWord Starting word for reset
      */
     public void resetUI(String currentWord) {
         String word = currentWord.toUpperCase();
@@ -219,21 +228,20 @@ public class GameView extends JFrame implements Observer {
         }
         clearInputField();
     }
-
     /**
-     * Sets handler for new game requests.
-     * @param listener ActionListener for new game button
+     * Configures new game button handler.
+     * @param listener ActionListener for new game events
      */
     public void setNewGameHandler(ActionListener listener) {
         newGameButton.addActionListener(listener);
     }
-
     /**
-     * Adds a configuration toggle to the settings panel.
+     * Adds configurable toggle to settings panel.
      * @param label Toggle display text
-     * @param initialState Initial toggle state
+     * @param initialState Default toggle state
      * @param handler Configuration change handler
      */
+
     public void addConfigToggle(String label, boolean initialState,
                                 GameController.ConfigToggleHandler handler) {
         JCheckBox toggle = new JCheckBox(label, initialState);
@@ -241,27 +249,20 @@ public class GameView extends JFrame implements Observer {
         addConfigControl(toggle);
     }
 
-    /**
-     * Updates persistent game state displays.
-     * @param model Current game model
-     */
     private void updatePersistentDisplays(Model model) {
         setStartWordDisplay(model.getStartWord());
         setTargetWordDisplay(model.getTargetWord());
         setResetButtonEnabled(model.getAttemptCount() > 0);
     }
 
-    /* UI Construction Methods */
-
     /**
-     * Initializes core UI components and layout.
+     * Initializes and arranges all UI components.
      */
     private void initializeUIComponents() {
         configureWindowSettings();
         buildMainLayout();
         setupInputFiltering();
     }
-
     /**
      * Configures main window properties.
      */
@@ -271,9 +272,8 @@ public class GameView extends JFrame implements Observer {
         setLayout(new BorderLayout(10, 10));
         setPreferredSize(new Dimension(1200, 1000));
     }
-
     /**
-     * Constructs primary UI layout sections.
+     * Constructs primary application layout.
      */
     private void buildMainLayout() {
         add(createHeaderSection(), BorderLayout.NORTH);
@@ -283,20 +283,13 @@ public class GameView extends JFrame implements Observer {
         add(createConfigPanel(), BorderLayout.EAST);
     }
 
-    /**
-     * Creates settings configuration panel.
-     * @return Configured settings panel
-     */
     private JPanel createConfigPanel() {
         configPanel.setLayout(new BoxLayout(configPanel, BoxLayout.Y_AXIS));
         configPanel.setBorder(BorderFactory.createTitledBorder("Settings"));
         return configPanel;
     }
 
-    /**
-     * Creates header section with game state displays.
-     * @return Header panel containing start/target/path labels
-     */
+
     private JPanel createHeaderSection() {
         JPanel panel = new JPanel(new GridLayout(3, 1));
         panel.add(createStartDisplay());
@@ -305,10 +298,6 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates start word display component.
-     * @return Configured start word panel
-     */
     private JPanel createStartDisplay() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         startLabel.setFont(new Font("Arial", Font.BOLD, 18));
@@ -316,10 +305,6 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates target word display component.
-     * @return Configured target word panel
-     */
     private JPanel createTargetDisplay() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         targetLabel.setFont(new Font("Arial", Font.BOLD, 18));
@@ -327,10 +312,7 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates transformation path display component.
-     * @return Configured path display panel
-     */
+
     private JPanel createPathDisplay() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         pathLabel.setFont(new Font("Arial", Font.PLAIN, 14));
@@ -338,12 +320,8 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates main character status display area.
-     * @return Panel with 4 character slots
-     */
+
     private JPanel createCharacterDisplay() {
-        // 使用垂直盒子布局并添加紧凑间距
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -351,47 +329,36 @@ public class GameView extends JFrame implements Observer {
                 BorderFactory.createEmptyBorder(10, 15, 10, 15)
         ));
 
-        // 当前单词行
-        JPanel currentRow = new JPanel();
-        currentRow.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 5));
-        currentRow.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
-        for (int i = 0; i < 4; i++) {
-            characterLabels[i] = createCharacterLabel();
-            currentRow.add(characterLabels[i]);
-        }
+        middleWordsPanel = new JPanel();
+        middleWordsPanel.setLayout(new BoxLayout(middleWordsPanel, BoxLayout.Y_AXIS));
+        middleWordsPanel.setVisible(showPath);
 
-        // 目标单词行（使用相同布局）
-        JPanel targetRow = new JPanel();
-        targetRow.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 5));
-        targetRow.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
-        for (int i = 0; i < 4; i++) {
-            targetCharacterLabels[i] = createCharacterLabel();
-            targetCharacterLabels[i].setBackground(colorMapper.getColor(Model.CharacterStatus.CORRECT_POSITION));
-            targetRow.add(targetCharacterLabels[i]);
-        }
+        JPanel currentRow = createWordRow(characterLabels);
 
+        JPanel targetRow = createWordRow(targetCharacterLabels);
+        initTargetLabels();
+
+        mainPanel.add(middleWordsPanel);
         mainPanel.add(currentRow);
         mainPanel.add(targetRow);
+
         return mainPanel;
     }
-
-    /**
-     * Creates standardized character display label.
-     * @return Configured character label
-     */
-    private JLabel createCharacterLabel() {
-        JLabel label = new JLabel("_", SwingConstants.CENTER);
-        label.setPreferredSize(new Dimension(80, 80));
-        label.setOpaque(true);
-        label.setBackground(Color.WHITE);
-        label.setFont(new Font("Arial", Font.BOLD, 24));
-        return label;
+    private JPanel createWordRow(JLabel[] labels) {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        for (int i = 0; i < 4; i++) {
+            labels[i] = createCharacterLabel();
+            panel.add(labels[i]);
+        }
+        return panel;
+    }
+    private void initTargetLabels() {
+        for (JLabel label : targetCharacterLabels) {
+            label.setBackground(colorMapper.getColor(Model.CharacterStatus.CORRECT_POSITION));
+        }
     }
 
-    /**
-     * Creates input section with text field and control buttons.
-     * @return Configured input section panel
-     */
+
     private JPanel createInputSection() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.add(createInputField(), BorderLayout.CENTER);
@@ -399,10 +366,6 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates text input field component.
-     * @return Configured input field panel
-     */
     private JComponent createInputField() {
         JPanel panel = new JPanel();
         inputField.setPreferredSize(new Dimension(220, 35));
@@ -411,10 +374,7 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates control button row.
-     * @return Panel containing action buttons
-     */
+
     private JPanel createControlButtons() {
         JPanel panel = new JPanel();
         panel.add(submitButton);
@@ -423,10 +383,7 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates virtual keyboard layout.
-     * @return Configured keyboard panel
-     */
+
     private JPanel createVirtualKeyboard() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -447,11 +404,6 @@ public class GameView extends JFrame implements Observer {
         return panel;
     }
 
-    /**
-     * Creates standardized keyboard button.
-     * @param key Button label/text
-     * @return Configured keyboard button
-     */
     private JButton createKeyboardButton(String key) {
         JButton button = new JButton(key.toUpperCase());
         button.setBackground(new Color(200, 200, 200));
@@ -463,10 +415,7 @@ public class GameView extends JFrame implements Observer {
         return button;
     }
 
-    /**
-     * Handles virtual keyboard input events.
-     * @param key Pressed key identifier
-     */
+
     private void handleKeyPress(String key) {
         switch (key) {
             case "←":
@@ -480,27 +429,52 @@ public class GameView extends JFrame implements Observer {
         }
     }
 
-    /**
-     * Updates transformation path display based on model state.
-     */
     private void updatePathDisplay() {
-        if (model != null) {
-            if (model.isPathDisplayEnabled()) {
-                model.getGamePath().ifPresent(path -> {
-                    String pathText = String.join(" → ", path);
-                    pathLabel.setText("Path: " + pathText);
+        middleWordsPanel.removeAll();
+
+        if (showPath && model != null) {
+            model.getGamePath().ifPresent(fullPath -> {
+                List<String> displaySteps = fullPath.subList(0, fullPath.size() - 1);
+
+                displaySteps.forEach(step -> {
+                    JPanel historyRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+
+                    List<Model.CharacterStatus> statuses = model.getCharacterFeedback(step);
+
+                    for (int i = 0; i < 4; i++) {
+                        JLabel label = createCharacterLabel();
+                        label.setText(String.valueOf(step.charAt(i)).toUpperCase());
+
+                        if (i < statuses.size()) {
+                            label.setBackground(colorMapper.getColor(statuses.get(i)));
+                        } else {
+                            label.setBackground(Color.LIGHT_GRAY);
+                        }
+
+                        historyRow.add(label);
+                    }
+                    middleWordsPanel.add(historyRow);
                 });
-            } else {
-                pathLabel.setText("Path: ");
-            }
+            });
         }
-        pathLabel.revalidate();
-        pathLabel.repaint();
+        middleWordsPanel.setVisible(showPath);
+        middleWordsPanel.revalidate();
+        middleWordsPanel.repaint();
+    }
+    private JLabel createCharacterLabel() {
+        JLabel label = new JLabel("_", SwingConstants.CENTER);
+        label.setPreferredSize(new Dimension(80, 80));
+        label.setOpaque(true);
+        label.setBackground(new Color(200, 200, 200));
+        label.setFont(new Font("Arial", Font.BOLD, 24));
+        label.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.DARK_GRAY),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
+        return label;
     }
 
-    /**
-     * Deletes last character from input field.
-     */
+
     private void deleteLastCharacter() {
         String text = inputField.getText();
         if (!text.isEmpty()) {
@@ -508,26 +482,18 @@ public class GameView extends JFrame implements Observer {
         }
     }
 
-    /**
-     * Appends character to input field if within limit.
-     * @param key Character to append
-     */
+
     private void updateInputField(String key) {
         if (inputField.getText().length() < 4) {
             inputField.setText(inputField.getText() + key);
         }
     }
 
-    /**
-     * Applies input filtering to text field.
-     */
     private void setupInputFiltering() {
         ((AbstractDocument) inputField.getDocument()).setDocumentFilter(new InputFilter());
     }
 
-    /**
-     * Finalizes window initialization and displays UI.
-     */
+
     public void setupWindow() {
         if (!windowInitialized) {
             pack();
@@ -537,78 +503,57 @@ public class GameView extends JFrame implements Observer {
         }
     }
 
-    /**
-     * Adds component to configuration panel.
-     * @param comp Component to add
-     */
+
     public void addConfigControl(Component comp) {
         configPanel.add(comp);
         configPanel.revalidate();
         configPanel.repaint();
     }
 
-    /**
-     * Adds spacing to configuration panel.
-     * @param width Spacer width in pixels
-     */
+
     public void addConfigSpacer(int width) {
         configPanel.add(Box.createHorizontalStrut(width));
     }
 
-    /**
-     * Retrieves current input field text.
-     * @return User input string
-     */
+
     public String getUserInput() {
         return inputField.getText();
     }
 
-    /**
-     * Clears input field content.
-     */
+
     public void clearInputField() {
         inputField.setText("");
     }
 
-    /**
-     * Controls visibility of transformation path display.
-     * @param visible Whether to show path
-     */
+
     public void setPathVisibility(boolean visible) {
+        middleWordsPanel.setVisible(visible);
         pathLabel.setVisible(visible);
     }
 
-    /**
-     * Enables/disables reset button.
-     * @param enabled Whether button should be active
-     */
+
     public void setResetButtonEnabled(boolean enabled) {
         resetButton.setEnabled(enabled);
     }
 
     /**
-     * Document filter enforcing letter-only input and 4-character limit.
+     * Custom document filter for input validation.
+     * Restricts input to letters only and enforces 4-character maximum.
      */
     private class InputFilter extends DocumentFilter {
-        /**
-         * Filters inserted text to letters only.
-         */
+
         @Override
         public void insertString(FilterBypass fb, int offset, String str, AttributeSet attrs) throws BadLocationException {
             processInput(fb, offset, 0, str, attrs, true);
         }
 
-        /**
-         * Filters replaced text to letters only.
-         */
+
         @Override
         public void replace(FilterBypass fb, int offset, int length, String str, AttributeSet attrs) throws BadLocationException {
             processInput(fb, offset, length, str, attrs, false);
         }
 
-        /**
-         * Common processing for text input operations.
-         */
+
         private void processInput(FilterBypass fb, int offset, int length, String str,
                                   AttributeSet attrs, boolean insert) throws BadLocationException {
             String filtered = str.replaceAll("[^a-zA-Z]", "");
@@ -620,9 +565,6 @@ public class GameView extends JFrame implements Observer {
             enforceMaxLength();
         }
 
-        /**
-         * Enforces 4-character maximum input length.
-         */
         private void enforceMaxLength() {
             SwingUtilities.invokeLater(() -> {
                 String text = inputField.getText();
@@ -634,18 +576,18 @@ public class GameView extends JFrame implements Observer {
     }
 
     /**
-     * Maps character statuses to display colors.
+     * Maps character status values to display colors.
      */
     private static class ColorMapper {
         private static final Color CORRECT = new Color(99, 190, 123);
         private static final Color PRESENT = new Color(255, 212, 100);
         private static final Color ABSENT = new Color(200, 200, 200);
-
         /**
-         * Gets color for character evaluation status.
+         * Retrieves color for character status.
          * @param status Character evaluation result
          * @return Corresponding display color
          */
+
         public Color getColor(Model.CharacterStatus status) {
             switch (status) {
                 case CORRECT_POSITION: return CORRECT;
