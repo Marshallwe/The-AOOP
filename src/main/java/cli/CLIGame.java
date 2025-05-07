@@ -3,19 +3,27 @@ package cli;
 import gui.model.Model;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Scanner;
 
 /**
  * Command-line interface implementation for the Word Ladder game.
- * Manages game flow, user interactions, and display of game state through console.
+ * Manages game flow, user interactions, and console-based display.
+ * Provides colored feedback and optional solution hints.
  */
 public class CLIGame {
     private static Model model;
+    private static boolean showHints = false;
+
+    // ANSI escape codes for colored text output
+    private static final String GREEN = "\u001B[32m";   // Correct position
+    private static final String YELLOW = "\u001B[33m";  // Present in word
+    private static final String WHITE = "\u001B[37m";   // Default color
+    private static final String CYAN = "\u001B[36m";    // Progress path
+    private static final String RESET = "\u001B[0m";    // Reset terminal color
 
     /**
      * Main entry point for the CLI game.
-     * Initializes game components and handles top-level exception handling.
+     * Initializes game components and handles top-level exceptions.
      */
     public static void start() {
         try {
@@ -30,22 +38,27 @@ public class CLIGame {
 
     /**
      * Configures game settings through user input.
-     * Collects preferences for error messages, path display, and word selection mode.
+     * Sets up error display, solution hints, and word selection mode.
      */
     private static void configureSettings() {
         Scanner scanner = new Scanner(System.in);
 
+        // Error message display toggle
         System.out.print("Display error messages?(y/n): ");
         model.setErrorDisplayEnabled(scanner.nextLine().equalsIgnoreCase("y"));
 
+        // Solution path hints toggle
+        System.out.print("Enable solution path hints?(y/n): ");
+        showHints = scanner.nextLine().equalsIgnoreCase("y");
 
+        // Word selection mode
         System.out.print("Use random words?(y/n): ");
         model.setUseRandomWords(scanner.nextLine().equalsIgnoreCase("y"));
     }
 
     /**
      * Initializes game state based on configuration.
-     * Uses random word pair if enabled, otherwise uses default words.
+     * Uses either random word pair or default words.
      * @throws IOException If dictionary loading fails
      */
     private static void initializeGame() throws IOException {
@@ -53,6 +66,7 @@ public class CLIGame {
             String[] words = model.generateValidWordPair();
             model.initializeGame(words[0], words[1]);
         } else {
+            // Default word pair for demonstration
             model.initializeGame("star", "moon");
         }
     }
@@ -62,28 +76,86 @@ public class CLIGame {
      * Manages turn sequence and victory condition checking.
      */
     private static void runGameLoop() {
-        System.out.println("\nWelcome to Word Ladder!");
-        System.out.println("Convert '" + model.getCurrentWord().toUpperCase()
-                + "' to '" + model.getTargetWord().toUpperCase() + "'\n");
+        System.out.println("\n" + GREEN + "Welcome to Word Ladder!" + RESET);
+        printSolutionPath();
 
         Scanner scanner = new Scanner(System.in);
-
         while (!model.getCurrentWord().equalsIgnoreCase(model.getTargetWord())) {
-            displayCurrentState();
+            displayGameState();
             System.out.print("Enter next word (4 letters): ");
-            String input = scanner.nextLine().trim();
-            processInput(input);
+            processInput(scanner.nextLine().trim());
         }
         displayVictory();
     }
 
     /**
-     * Displays current game state including current word and transition path.
+     * Displays the optimal conversion path at game start.
      */
-    private static void displayCurrentState() {
+    private static void printSolutionPath() {
+        System.out.println("\nTarget Conversion Path:");
+        System.out.println(GREEN + formatPath(model.getSolutionPath()) + RESET);
+        System.out.println("\nYour Progress:");
+    }
+
+    /**
+     * Shows current game state including:
+     * - Current word
+     * - Player's progress path
+     * - Optional step hints
+     */
+    private static void displayGameState() {
         System.out.println("\n[Current] " + model.getCurrentWord().toUpperCase());
+        System.out.println("Progress Path: " + formatProgressPath());
+        if (showHints) showNextOptimalStep();
+    }
 
+    /**
+     * Formats a word path as arrow-separated string.
+     * @param path List of words in the path
+     * @return Formatted path string in uppercase
+     */
+    private static String formatPath(List<String> path) {
+        return String.join(" → ", path).toUpperCase();
+    }
 
+    /**
+     * Formats player's progress path with cyan coloring.
+     * @return Colored progress path string
+     */
+    private static String formatProgressPath() {
+        return CYAN + String.join(" → ", model.getGamePath()).toUpperCase() + RESET;
+    }
+
+    /**
+     * Displays the next recommended step in the solution path.
+     * Highlights the character that needs to be changed.
+     */
+    private static void showNextOptimalStep() {
+        List<String> solution = model.getSolutionPath();
+        int currentStep = model.getAttemptCount();
+
+        if (currentStep < solution.size() - 1) {
+            String current = model.getCurrentWord();
+            String nextStep = solution.get(currentStep + 1);
+            System.out.println("\nNext Recommended Step: " + highlightDifference(current, nextStep));
+        }
+    }
+
+    /**
+     * Highlights the differing character between current and next step.
+     * @param current Current word in the game
+     * @param next Next recommended word in solution path
+     * @return Formatted string with yellow highlight on changed character
+     */
+    private static String highlightDifference(String current, String next) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < current.length(); i++) {
+            char c = current.charAt(i);
+            char n = next.charAt(i);
+            // Highlight changed character in yellow
+            sb.append(c == n ? n : YELLOW + n + RESET);
+        }
+        return sb.toString().toUpperCase();
     }
 
     /**
@@ -91,63 +163,62 @@ public class CLIGame {
      * @param input User's guessed word input
      */
     private static void processInput(String input) {
-        // Validate input length
+        // Validate input length first
         if (input.length() != 4) {
             if (model.isErrorDisplayEnabled()) {
-                System.out.println("Error: Input must be exactly 4 letters\n");
+                System.out.println("Error: Must be 4-letter word");
             }
             return;
         }
 
-        // Submit valid attempt
+        // Submit valid attempt or show errors
         if (model.submitGuess(input)) {
-            displayFeedback(model.getCharacterFeedback(input));
+            showColorFeedback(model.getCharacterFeedback(input));
         } else {
-            handleInvalidAttempt();
+            showError();
         }
     }
 
     /**
      * Displays colored feedback for each character position.
-     * @param statuses List of character status indicators
+     * @param feedback List of character status indicators
      */
-    private static void displayFeedback(List<Model.CharacterStatus> statuses) {
-        statuses.forEach(status -> {
+    private static void showColorFeedback(List<Model.CharacterStatus> feedback) {
+        feedback.forEach(status -> {
             switch (status) {
                 case CORRECT_POSITION:
-                    System.out.print("\u001B[32m■ ");  // Green
+                    System.out.print(GREEN + "■ ");  // Green block
                     break;
                 case PRESENT_IN_WORD:
-                    System.out.print("\u001B[33m■ ");  // Yellow
+                    System.out.print(YELLOW + "■ ");  // Yellow block
                     break;
                 default:
-                    System.out.print("\u001B[37m■ ");  // White
-                    break;
+                    System.out.print(WHITE + "■ ");  // White block
             }
         });
-        System.out.println("\u001B[0m");  // Reset color
+        System.out.println(RESET);  // Reset terminal color
     }
 
     /**
-     * Handles invalid attempts by displaying validation rules.
+     * Displays validation rules for invalid attempts.
      */
-    private static void handleInvalidAttempt() {
+    private static void showError() {
         if (model.isErrorDisplayEnabled()) {
-            System.out.println("Invalid! Must be:");
+            System.out.println("Invalid Attempt. Requirements:");
             System.out.println("1. Valid dictionary word");
-            System.out.println("2. Exactly 1 letter changed");
-            System.out.println("3. Not a previous attempt\n");
+            System.out.println("2. Change exactly 1 letter");
+            System.out.println("3. No duplicate attempts");
         }
     }
 
     /**
-     * Displays victory message with step count and complete path.
+     * Displays victory message with step count and path comparison.
      */
     private static void displayVictory() {
-        String victoryBanner = "\n\u001B[32m[ VICTORY ] Achieved in "
-                + model.getAttemptCount() + " steps\u001B[0m";
-        System.out.println(victoryBanner);
-
-
+        System.out.println("\n" + GREEN + "[VICTORY] Steps: " + model.getAttemptCount() + RESET);
+        System.out.println("\nOptimal Path:");
+        System.out.println(GREEN + formatPath(model.getSolutionPath()) + RESET);
+        System.out.println("\nYour Path:");
+        System.out.println(CYAN + formatPath(model.getGamePath()) + RESET);
     }
 }
