@@ -11,7 +11,7 @@ import java.util.Observer;
  * MVC Controller component for managing game logic and coordinating between
  * Model and View. Handles user input, configuration changes, and game state updates.
  */
-public class GameController implements Observer {
+public class GameController{
 
     /** Functional interface for handling configuration toggle events */
     public interface ConfigToggleHandler {
@@ -34,7 +34,6 @@ public class GameController implements Observer {
     public GameController(GameView view, Model model) {
         this.view = view;
         this.model = model;
-        model.addObserver(this);
         initializeComponents();
     }
 
@@ -86,8 +85,6 @@ public class GameController implements Observer {
     private void refreshGameState() {
         updateStartDisplay();
         updateTargetDisplay();
-        updatePathDisplay();
-        updatePathVisibility();
         view.setResetButtonEnabled(model.getAttemptCount() > 0);
     }
 
@@ -103,30 +100,7 @@ public class GameController implements Observer {
         view.setNewGameHandler(e -> startNewGame());
     }
 
-    /**
-     * Observer pattern implementation for model changes
-     * @param o Observable object (Model)
-     * @param arg Notification type
-     */
-    @Override
-    public void update(Observable o, Object arg) {
-        if (arg instanceof Model.NotificationType) {
-            switch ((Model.NotificationType) arg) {
-                case STATE_UPDATE:
-                    handleStateUpdate();
-                    break;
-                case CONFIG_CHANGED:
-                    updatePathVisibility();
-                    break;
-                case GAME_RESET:
-                    handleGameReset();
-                    break;
-                case GAME_WON:
-                    handleGameWon();
-                    break;
-            }
-        }
-    }
+
 
     /** Handles word submission from the view */
     private void handleGuessSubmission(ActionEvent event) {
@@ -156,7 +130,6 @@ public class GameController implements Observer {
     /** Updates UI components after model state change */
     private void handleStateUpdate() {
         updateCharacterFeedback();
-        updatePathDisplay();
         view.setResetButtonEnabled(true);
 
         if (model.getCurrentWord().equalsIgnoreCase(model.getTargetWord())) {
@@ -173,16 +146,7 @@ public class GameController implements Observer {
         );
     }
 
-    /** Updates transformation path display based on config */
-    private void updatePathDisplay() {
-        if (model.isPathDisplayEnabled()) {
-            model.getGamePath().ifPresent(path ->
-                    view.setTransformationPathDisplay(String.join(" → ", path))
-            );
-        } else {
-            view.setTransformationPathDisplay("");
-        }
-    }
+
 
     /** Shows invalid attempt feedback dialog when enabled */
     private void showInvalidAttemptFeedback() {
@@ -199,10 +163,8 @@ public class GameController implements Observer {
     private void handleGameReset() {
         view.resetUI(model.getCurrentWord());
         view.setResetButtonEnabled(false);
-        updatePathVisibility();
         updateTargetDisplay();
         updateStartDisplay();
-        updatePathDisplay();
     }
 
     /** Updates target word display */
@@ -210,10 +172,7 @@ public class GameController implements Observer {
         view.setTargetWordDisplay(model.getTargetWord());
     }
 
-    /** Updates path visibility based on config */
-    private void updatePathVisibility() {
-        view.setPathVisibility(model.isPathDisplayEnabled());
-    }
+
 
     /** Handles game completion scenario */
     private void handleGameWon() {
@@ -244,7 +203,6 @@ public class GameController implements Observer {
             }
             updateStartDisplay();
             updateTargetDisplay();
-            updatePathDisplay();
         } catch (Exception e) {
             view.showFeedbackDialog("Initialization Error",
                     "Failed to start new game: " + e.getMessage(), true);

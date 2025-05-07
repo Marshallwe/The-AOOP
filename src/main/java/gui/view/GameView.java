@@ -37,7 +37,7 @@ public class GameView extends JFrame implements Observer {
     private final JPanel configPanel = new JPanel();
     private final JLabel startLabel = new JLabel("Start:");
     private final JLabel targetLabel = new JLabel("Target:");
-    private final JLabel pathLabel = new JLabel("Path:");
+
     private final ColorMapper colorMapper = new ColorMapper();
     private boolean windowInitialized = false;
     private Model model;
@@ -185,13 +185,7 @@ public class GameView extends JFrame implements Observer {
             targetCharacterLabels[i].setBackground(colorMapper.getColor(Model.CharacterStatus.CORRECT_POSITION));
         }
     }
-    /**
-     * Updates transformation path display.
-     * @param path Colon-separated transformation sequence
-     */
-    public void setTransformationPathDisplay(String path) {
-        pathLabel.setText("Path: " + path);
-    }
+
 
     /**
      * Updates character status indicators with feedback colors.
@@ -294,7 +288,6 @@ public class GameView extends JFrame implements Observer {
         JPanel panel = new JPanel(new GridLayout(3, 1));
         panel.add(createStartDisplay());
         panel.add(createTargetDisplay());
-        panel.add(createPathDisplay());
         return panel;
     }
 
@@ -313,12 +306,6 @@ public class GameView extends JFrame implements Observer {
     }
 
 
-    private JPanel createPathDisplay() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        pathLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        panel.add(pathLabel);
-        return panel;
-    }
 
 
     private JPanel createCharacterDisplay() {
@@ -526,10 +513,7 @@ public class GameView extends JFrame implements Observer {
     }
 
 
-    public void setPathVisibility(boolean visible) {
-        middleWordsPanel.setVisible(visible);
-        pathLabel.setVisible(visible);
-    }
+
 
 
     public void setResetButtonEnabled(boolean enabled) {
