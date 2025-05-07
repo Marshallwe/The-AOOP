@@ -54,10 +54,6 @@ public class GameController{
         view.addConfigToggle("Show Errors", model.isErrorDisplayEnabled(),
                 enabled -> model.setErrorDisplayEnabled(enabled));
 
-        // Path visibility toggle
-        view.addConfigToggle("Show Path", model.isPathDisplayEnabled(),
-                enabled -> model.setPathDisplayEnabled(enabled));
-
         // Random words mode toggle
         view.addConfigToggle("Random Words", model.isRandomWordsEnabled(),
                 enabled -> {

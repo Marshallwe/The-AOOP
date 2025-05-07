@@ -38,8 +38,6 @@ public class CLIGame {
         System.out.print("Display error messages?(y/n): ");
         model.setErrorDisplayEnabled(scanner.nextLine().equalsIgnoreCase("y"));
 
-        System.out.print("Show the transition path?(y/n): ");
-        model.setPathDisplayEnabled(scanner.nextLine().equalsIgnoreCase("y"));
 
         System.out.print("Use random words?(y/n): ");
         model.setUseRandomWords(scanner.nextLine().equalsIgnoreCase("y"));
@@ -85,12 +83,7 @@ public class CLIGame {
     private static void displayCurrentState() {
         System.out.println("\n[Current] " + model.getCurrentWord().toUpperCase());
 
-        if (model.isPathDisplayEnabled()) {
-            Optional<List<String>> pathOpt = model.getGamePath();
-            pathOpt.ifPresent(path ->
-                    System.out.println("Path: " + String.join(" → ", path))
-            );
-        }
+
     }
 
     /**
@@ -155,10 +148,6 @@ public class CLIGame {
                 + model.getAttemptCount() + " steps\u001B[0m";
         System.out.println(victoryBanner);
 
-        if (model.isPathDisplayEnabled()) {
-            model.getGamePath().ifPresent(path ->
-                    System.out.println("Complete path: " + String.join(" → ", path))
-            );
-        }
+
     }
 }

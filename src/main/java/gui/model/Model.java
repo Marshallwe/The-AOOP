@@ -7,15 +7,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-/**
- * INVARIANTS:
- * 1. config != null
- * 2. validator != null && properly initialized with dictionary
- * 3. lastErrorMessage == null || contains last error description
- * 4. game == null || (startWord() and targetWord() are 4-letter lowercase)
- * 5. game == null || path maintains valid word ladder transitions
- * 6. config settings remain consistent between notifications
- */
+
 public class Model extends Observable {
     public enum CharacterStatus {
         CORRECT_POSITION, PRESENT_IN_WORD, NOT_PRESENT
@@ -29,44 +21,20 @@ public class Model extends Observable {
     private WordLadderGame game;
     private final WordValidator validator;
     private String lastErrorMessage;
-    /**
-     * @param dictionaryPath valid path to dictionary file
-     * @throws IOException if file cannot be read
-     * @pre dictionaryPath != null && file exists && readable
-     * @post validator initialized with words from file
-     */
+
     public Model(String dictionaryPath) throws IOException {
         if (dictionaryPath == null) {
             throw new IllegalArgumentException("Dictionary path cannot be null");
         }
         this.validator = new WordValidator(dictionaryPath);
-        assert validator != null : "Validator must be initialized";
-        assert config != null : "Config should never be null";
     }
-    /**
-     * @return current start word or empty string
-     * @pre None
-     * @post returns start word if initialized, else empty string
-     */
+
     public String getStartWord() {
         return game != null ? game.startWord() : "";
     }
-    /**
-     * @param startWord initial word (4 letters)
-     * @param targetWord target word (4 letters)
-     * @throws IllegalArgumentException for invalid words
-     * @pre startWord != null && targetWord != null
-     * @pre startWord.length() == 4 && targetWord.length() == 4
-     * @pre validator.isValid(startWord) && validator.isValid(targetWord)
-     * @pre !startWord.equalsIgnoreCase(targetWord)
-     * @post new game initialized with specified words
-     */
+
     public void initializeGame(String startWord, String targetWord) {
         try {
-            assert startWord != null : "Start word cannot be null";
-            assert targetWord != null : "Target word cannot be null";
-            assert startWord.length() == 4 : "Start word must be 4 letters";
-            assert targetWord.length() == 4 : "Target word must be 4 letters";
             validateWords(startWord, targetWord);
             checkWordsInDictionary(startWord, targetWord);
             this.game = new WordLadderGame(
@@ -75,8 +43,6 @@ public class Model extends Observable {
                     validator,
                     config
             );
-            assert game != null : "Game instance not created";
-            assert game.attemptCount() == 0 : "Initial attempt count must be 0";
             lastErrorMessage = null;
             notify(NotificationType.GAME_RESET);
         } catch (IllegalArgumentException e) {
@@ -85,24 +51,12 @@ public class Model extends Observable {
         }
     }
 
-    /**
-     * @param word guessed word
-     * @return true if valid attempt
-     * @throws IllegalStateException if game not initialized
-     * @pre word != null && word.length() == 4
-     * @pre validator.isValid(word)
-     * @pre differs from current word by exactly 1 character
-     * @post attempt count increments if valid
-     */
     public boolean submitGuess(String word) {
         try {
             Objects.requireNonNull(word, "Input word cannot be null");
             checkGameInitialized();
-            int prevAttempts = game.attemptCount();
             if (game.submitAttempt(word)) {
                 lastErrorMessage = null;
-                assert game.attemptCount() == prevAttempts + 1 : "Attempt count not incremented";
-                assert game.currentWord().equalsIgnoreCase(word) : "Current word mismatch";
                 notify(NotificationType.STATE_UPDATE);
                 if (game.isWin()) {
                     notify(NotificationType.GAME_WON);
@@ -116,50 +70,31 @@ public class Model extends Observable {
             return false;
         }
     }
-    /**
-     * @throws IllegalStateException if game not initialized
-     * @pre game != null
-     * @post resets game state to initial configuration
-     */
+
     public void resetGame() {
         checkGameInitialized();
         game.reset();
         lastErrorMessage = null;
         notify(NotificationType.GAME_RESET);
     }
-    /** @return last error message or null */
+
     public String getLastErrorMessage() {
         return lastErrorMessage;
     }
-    /**
-     * @param enabled toggle error display
-     * @post updates config.showErrors
-     */
+
     public void setErrorDisplayEnabled(boolean enabled) {
         config.setShowErrors(enabled);
         notify(NotificationType.CONFIG_CHANGED);
     }
-    /**
-     * @param enabled toggle path display
-     * @post updates config.showPath
-     */
-    public void setPathDisplayEnabled(boolean enabled) {
-        config.setShowPath(enabled);
-        notify(NotificationType.CONFIG_CHANGED);
-    }
-    /** @return current word in game */
+
     public String getCurrentWord() {
         return (game != null) ? game.currentWord() : "";
     }
-    /** @return target word */
+
     public String getTargetWord() {
         return (game != null) ? game.targetWord() : "";
     }
-    /**
-     * @param word to check
-     * @return list of character statuses
-     * @post returns size 4 list with feedback
-     */
+
     public List<CharacterStatus> getCharacterFeedback(String word) {
         Objects.requireNonNull(word, "Word cannot be null");
         if (word.length() != 4) {
@@ -171,41 +106,30 @@ public class Model extends Observable {
         }
         return game.calculateFeedback(word);
     }
-    /**
-     * @return unmodifiable path if enabled
-     * @post returns Optional.empty() if path display disabled
-     */
-    public Optional<List<String>> getGamePath() {
-        return game.getPath();
+
+    public List<String> getGamePath() {
+        return game != null ? game.getPath() : Collections.emptyList();
     }
-    /**
-     * @return random word pair from dictionary
-     * @throws IllegalStateException if insufficient words
-     * @pre validator contains ≥2 words
-     */
+
     public String[] generateValidWordPair() {
         return validator.getValidWordPair();
     }
-    /** @return number of attempts made */
+
     public int getAttemptCount() {
         return game != null ? game.attemptCount() : 0;
     }
-    /** @param enabled toggle random word selection */
+
     public void setUseRandomWords(boolean enabled) {
         config.setUseRandomWords(enabled);
         notify(NotificationType.CONFIG_CHANGED);
     }
-    /** @return random words config state */
+
     public boolean isRandomWordsEnabled() {
         return config.useRandomWords();
     }
-    /** @return error display config state */
+
     public boolean isErrorDisplayEnabled() {
         return config.showErrors();
-    }
-    /** @return path display config state */
-    public boolean isPathDisplayEnabled() {
-        return config.showPath();
     }
 
     private void validateWords(String... words) {
@@ -236,13 +160,10 @@ public class Model extends Observable {
         super.notifyObservers(type);
         clearChanged();
     }
-    /**
-     * INVARIANTS:
-     * 1. All boolean flags have valid states
-     */
+
     private static class GameConfig {
         private boolean showErrors = true;
-        private boolean showPath = true;
+
         private boolean useRandom = false;
 
         boolean showErrors() {
@@ -253,14 +174,6 @@ public class Model extends Observable {
             this.showErrors = show;
         }
 
-        boolean showPath() {
-            return showPath;
-        }
-
-        void setShowPath(boolean show) {
-            this.showPath = show;
-        }
-
         boolean useRandomWords() {
             return useRandom;
         }
@@ -269,25 +182,19 @@ public class Model extends Observable {
             this.useRandom = enable;
         }
     }
-    /**
-     * INVARIANTS:
-     * 1. start and target are 4-letter lowercase
-     * 2. path maintains valid word ladder transitions
-     */
+
     private class WordLadderGame {
         private final String start;
         private final String target;
         private String current;
         private final List<String> path;
         private final WordValidator validator;
-        private final GameConfig config;
 
         WordLadderGame(String start, String target, WordValidator validator, GameConfig config) {
             this.start = start;
             this.target = target;
             this.current = start;
             this.validator = validator;
-            this.config = config;
             this.path = new ArrayList<>();
             this.path.add(start);
         }
@@ -302,13 +209,8 @@ public class Model extends Observable {
 
         boolean submitAttempt(String attempt) {
             if (isValidAttempt(attempt)) {
-                String previous = current;
-                String newWord = attempt.toLowerCase();
-                path.add(newWord);
-                current = newWord;
-                assert isSingleLetterChange(previous, newWord) : "Invalid single-letter change";
-                assert path.size() >= 2 : "Path must grow with attempts";
-                assert validator.isValid(newWord) : "Invalid word in path";
+                path.add(attempt.toLowerCase());
+                current = attempt.toLowerCase();
                 return true;
             }
             return false;
@@ -364,17 +266,15 @@ public class Model extends Observable {
             current = start;
             path.clear();
             path.add(start);
-            Model.this.notify(Model.NotificationType.STATE_UPDATE);
+            Model.this.notify(NotificationType.STATE_UPDATE);
         }
 
         boolean isWin() {
             return current.equalsIgnoreCase(target);
         }
 
-        Optional<List<String>> getPath() {
-            return config.showPath()
-                    ? Optional.of(Collections.unmodifiableList(path))
-                    : Optional.empty();
+        List<String> getPath() {
+            return Collections.unmodifiableList(path);
         }
 
         String currentWord() {
@@ -385,13 +285,11 @@ public class Model extends Observable {
             return target;
         }
     }
-    /**
-     * INVARIANTS:
-     * 1. dictionary ≠ null && contains only 4-letter words
-     */
+
     private static class WordValidator {
         private final Set<String> dictionary;
         private final Random random = new Random();
+
         WordValidator(String path) throws IOException {
             this.dictionary = loadDictionary(path);
             if (dictionary.isEmpty()) {
