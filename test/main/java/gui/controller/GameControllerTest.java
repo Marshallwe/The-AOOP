@@ -1,124 +1,124 @@
+// GameControllerTest.java
 package main.java.gui.controller;
+
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.*;
 
 import gui.controller.GameController;
 import gui.model.Model;
 import gui.view.GameView;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 import java.awt.event.ActionEvent;
-import java.lang.reflect.Method;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import java.awt.event.ActionListener;
+import javax.swing.JButton;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
+import org.mockito.stubbing.Answer;
+import org.mockito.junit.MockitoJUnitRunner;
 
-class GameControllerTest {
+@RunWith(MockitoJUnitRunner.class)
+public class GameControllerTest {
+
+    @Mock private GameView mockView;
+    @Mock private Model mockModel;
+    @Captor private ArgumentCaptor<ActionListener> submitHandlerCaptor;
+    @Captor private ArgumentCaptor<ActionListener> newGameHandlerCaptor;
+    @Captor private ArgumentCaptor<ActionListener> resetHandlerCaptor;
+    @Captor private ArgumentCaptor<String> stringCaptor;
+
     private GameController controller;
-    private Model mockModel;
-    private GameView mockView;
+    private ActionEvent testEvent;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        // Initialize mocks and inject dependencies
-        mockModel = Mockito.mock(Model.class);
-        mockView = Mockito.mock(GameView.class);
-
-        // Create controller with mocked dependencies
+    @Before
+    public void setUp() {
+        configureModelBehavior();
         controller = new GameController(mockView, mockModel);
+        testEvent = new ActionEvent(new JButton(), 0, "");
+
+        // Capture event handlers
+        verify(mockView).setSubmitHandler(submitHandlerCaptor.capture());
+        verify(mockView).setNewGameHandler(newGameHandlerCaptor.capture());
+        verify(mockView).setResetHandler(resetHandlerCaptor.capture());
+    }
+
+    // Configure model state linkages between methods
+    private void configureModelBehavior() {
+        // Link setUseRandomWords with isRandomWordsEnabled
+        doAnswer((Answer<Void>) invocation -> {
+            boolean enabled = invocation.getArgument(0);
+            when(mockModel.isRandomWordsEnabled()).thenReturn(enabled);
+            return null;
+        }).when(mockModel).setUseRandomWords(anyBoolean());
+
+        // Initialize default return value
+        when(mockModel.isRandomWordsEnabled()).thenReturn(false);
     }
 
     @Test
-    void testInitialization() {
-        // Verify view configuration during initialization
-        verify(mockView, times(3)).addConfigToggle(
-                anyString(),  // Setting name
-                anyBoolean(), // Default state
-                any()         // Change listener
-        );
-        verify(mockView).addConfigSpacer(20);  // Verify UI spacing
-        verify(mockView).setupWindow();        // Verify window setup
+    public void testConstructorInitialization() {
+        verify(mockView).addConfigToggle(eq("Show Errors"), anyBoolean(), any());
+        verify(mockView).addConfigToggle(eq("Show Solution Path"), anyBoolean(), any());
+        verify(mockView).addConfigToggle(eq("Random Words"), anyBoolean(), any());
+        verify(mockView).addConfigSpacer(20);
+        verify(mockView).setupWindow();
     }
 
     @Test
-    void testValidGuessSubmission() throws Exception {
-        // Configure mock behavior
+    public void testValidGuessSubmission() {
         when(mockView.getUserInput()).thenReturn("test");
         when(mockModel.submitGuess("test")).thenReturn(true);
 
-        // Simulate guess submission action
-        invokePrivateMethod("handleGuessSubmission", new ActionEvent(this, 0, "submit"));
+        submitHandlerCaptor.getValue().actionPerformed(testEvent);
 
-        // Verify expected interactions
-        verify(mockView).clearInputField();       // Input field cleared
-        verify(mockModel).submitGuess("test");    // Guess processed
+        verify(mockView).clearInputField();
+        verify(mockModel).submitGuess("test");
     }
 
     @Test
-    void testInvalidInputHandling() throws Exception {
-        // Test short input handling
-        when(mockView.getUserInput()).thenReturn("abc");
+    public void testInvalidLengthInput() {
+        when(mockView.getUserInput()).thenReturn("bad");
 
-        // Trigger submission handling
-        invokePrivateMethod("handleGuessSubmission", new ActionEvent(this, 0, "submit"));
+        submitHandlerCaptor.getValue().actionPerformed(testEvent);
 
-        // Verify error feedback
         verify(mockView).showFeedbackDialog(
-                eq("Invalid Input"),   // Dialog title
-                anyString(),          // Error message
-                eq(true)              // Warning type
+                eq("Invalid Input"),
+                eq("Must be 4 characters"),
+                eq(true)
         );
-        // Ensure no submission occurred
-        verify(mockModel, never()).submitGuess(anyString());
     }
 
     @Test
-    void testStateUpdateProcessing() throws Exception {
-        // Configure mock responses
-        when(mockModel.getCurrentWord()).thenReturn("test");
-        when(mockModel.getTargetWord()).thenReturn("test");
+    public void testConfigToggleHandler() {
+        // Get random words config toggle handler
+        GameController.ConfigToggleHandler handler = getRandomWordsToggleHandler();
 
-        // Trigger state update
-        invokePrivateMethod("handleStateUpdate");
+        // Activate configuration
+        handler.toggle(true);
 
-        // Verify UI updates
-        verify(mockView).updateCharacterStatus(
-                anyList(),   // Expected character status list
-                eq("test")   // Current word display
-        );
-        verify(mockView).setResetButtonEnabled(true);  // Reset button state
+        // Verify state update and word generation
+        verify(mockModel).setUseRandomWords(true);
+        verify(mockModel).generateValidWordPair();
     }
 
     @Test
-    void testErrorFeedbackSuppression() throws Exception {
-        // Configure error display suppression
-        when(mockModel.isErrorDisplayEnabled()).thenReturn(false);
+    public void testRefreshGameState() {
+        // Trigger reset operation
+        resetHandlerCaptor.getValue().actionPerformed(testEvent);
 
-        // Attempt to show feedback
-        invokePrivateMethod("showInvalidAttemptFeedback");
-
-        // Verify no UI interaction occurred
-        verify(mockView, never()).showFeedbackDialog(
-                anyString(),   // Title
-                anyString(),   // Message
-                anyBoolean()   // Type
-        );
+        verify(mockModel).resetGame();
+        verify(mockView, atLeastOnce()).setStartWordDisplay(any());
+        verify(mockView, atLeastOnce()).setTargetWordDisplay(any());
     }
 
-    /**
-     * Helper method for invoking private controller methods
-     * @param methodName Name of the private method to test
-     * @param args Arguments to pass to the method
-     */
-    private void invokePrivateMethod(String methodName, Object... args) throws Exception {
-        // Prepare parameter types
-        Class<?>[] paramTypes = new Class[args.length];
-        for (int i = 0; i < args.length; i++) {
-            paramTypes[i] = args[i].getClass();
-        }
+    // Helper method: Get random words config toggle handler
+    private GameController.ConfigToggleHandler getRandomWordsToggleHandler() {
+        ArgumentCaptor<GameController.ConfigToggleHandler> toggleCaptor =
+                ArgumentCaptor.forClass(GameController.ConfigToggleHandler.class);
 
-        // Access and execute private method
-        Method method = GameController.class.getDeclaredMethod(methodName, paramTypes);
-        method.setAccessible(true);
-        method.invoke(controller, args);
+        verify(mockView, times(3)).addConfigToggle(any(), anyBoolean(), toggleCaptor.capture());
+        return toggleCaptor.getAllValues().get(2);
     }
 }

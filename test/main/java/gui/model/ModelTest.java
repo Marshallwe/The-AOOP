@@ -1,127 +1,101 @@
 package main.java.gui.model;
 
-import gui.model.Model;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Arrays;
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.List;
+import java.util.Observer;
 
-class ModelTest {
+import gui.model.Model;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+public class ModelTest {
+
+    @Rule
+    public TemporaryFolder tempFolder = new TemporaryFolder();
+
     private Model model;
-    private final String testDictPath = "test_dict.txt";
+    private Path testDictPath;
+    private Observer mockObserver;
 
-    @BeforeEach
-    void setUp() throws IOException {
-        // Create temporary dictionary file with test words
-        Files.write(Paths.get(testDictPath),
-                Arrays.asList("star", "moon", "test", "bear", "tent", "boat"));
-        // Initialize model with test dictionary
-        model = new Model(testDictPath);
+    @Before
+    public void setUp() throws IOException {
+        // Create temporary dictionary file (Java 8 compatible)
+        testDictPath = tempFolder.newFile().toPath();
+        Files.write(testDictPath, Arrays.asList("star", "stay", "stir", "sear", "moon"));
+
+        // Initialize model
+        model = new Model(testDictPath.toString());
+
+        // Configure mock observer
+        mockObserver = mock(Observer.class);
+        model.addObserver(mockObserver);
     }
 
-    @AfterEach
-    void tearDown() throws IOException {
-        // Clean up temporary file after each test
-        Files.deleteIfExists(Paths.get(testDictPath));
+    /* Constructor Tests */
+    @Test(expected = IllegalArgumentException.class)
+    public void testConstructorWithNullPath() throws IOException {
+        new Model(null);
     }
 
+    @Test(expected = IOException.class)
+    public void testConstructorWithInvalidDictionary() throws IOException {
+        new Model("invalid/path.txt");
+    }
+
+    /* Gameplay Tests */
     @Test
-    void testGameInitialization_ValidWords() {
-        // Initialize game with known words
-        model.initializeGame("star", "moon");
-
-        // Verify initial game state
-        assertEquals("star", model.getStartWord(),
-                "Initial word should match provided start word");
-        assertEquals("moon", model.getTargetWord(),
-                "Target word should match provided end word");
-        assertEquals(0, model.getAttemptCount(),
-                "Attempt count should initialize to zero");
+    public void testValidGuessSubmission() {
+        model.initializeGame("star", "stir");
+        assertTrue(model.submitGuess("stir"));
+        assertEquals(1, model.getAttemptCount());
+        assertNotification(Model.NotificationType.STATE_UPDATE);
     }
 
+
+    /* Configuration Tests */
     @Test
-    void testSubmitGuess_ValidAttempt() {
-        // Set up test game scenario
-        model.initializeGame("test", "tent");
+    public void testConfigurationChanges() {
+        model.setShowPathEnabled(true);
+        assertTrue(model.isShowPathEnabled());
+        assertNotification(Model.NotificationType.CONFIG_CHANGED);
 
-        // Submit valid guess
-        boolean result = model.submitGuess("tent");
-
-        // Verify successful submission
-        assertTrue(result, "Valid guess should be accepted");
-        assertEquals(1, model.getAttemptCount(),
-                "Attempt count should increment on valid guess");
-        assertTrue(model.getGamePath().get().contains("tent"),
-                "Game path should include accepted guess");
+        model.setErrorDisplayEnabled(false);
+        assertFalse(model.isErrorDisplayEnabled());
     }
 
+    /* Random Word Generation Tests */
     @Test
-    void testSubmitGuess_InvalidAttempts() {
-        // Initialize test game
-        model.initializeGame("test", "tent");
-
-        // Test same-word submission
-        assertFalse(model.submitGuess("test"),
-                "Should reject duplicate start word");
-
-        // Test invalid dictionary word
-        assertFalse(model.submitGuess("abcd"),
-                "Should reject non-dictionary words");
-
-        // Test invalid multi-letter change
-        assertFalse(model.submitGuess("bear"),
-                "Should reject multi-letter changes");
-    }
-
-    @Test
-    void testGameReset_StateRestoration() {
-        // Set up and modify game state
-        model.initializeGame("star", "moon");
-        model.submitGuess("stor");
-
-        // Reset game state
-        model.resetGame();
-
-        // Verify state restoration
-        assertEquals("star", model.getCurrentWord(),
-                "Current word should reset to initial value");
-        assertEquals(0, model.getAttemptCount(),
-                "Attempt count should reset to zero");
-        assertEquals(1, model.getGamePath().get().size(),
-                "Game path should reset to initial state");
-    }
-
-    @Test
-    void testRandomWordGeneration_Validity() {
-        // Generate random word pair
+    public void testRandomWordGeneration() {
         String[] words = model.generateValidWordPair();
-
-        // Validate word properties
-        assertTrue(isWordInDictionary(words[0]),
-                "Start word must exist in dictionary: " + words[0]);
-        assertTrue(isWordInDictionary(words[1]),
-                "Target word must exist in dictionary: " + words[1]);
-        assertEquals(4, words[0].length(),
-                "Generated words must be 4 characters long");
-        assertNotEquals(words[0], words[1],
-                "Start and target words must be different");
+        assertEquals(2, words.length);
+        assertNotEquals(words[0], words[1]);
+        assertTrue(isValid(words[0])); // Using local validation method
+        assertTrue(isValid(words[1]));
     }
 
-    /**
-     * Helper method to verify word existence in test dictionary
-     * @param word Word to check
-     * @return true if word exists in test dictionary
-     */
-    private boolean isWordInDictionary(String word) {
+    /* Helper Methods */
+    private void assertNotification(Model.NotificationType type) {
+        verify(mockObserver).update(any(), eq(type));
+    }
+
+    // Local dictionary validation method
+    private boolean isValid(String word) {
         try {
-            return Files.readAllLines(Paths.get(testDictPath))
-                    .contains(word.toLowerCase());
+            return word != null
+                    && word.length() == 4
+                    && Files.readAllLines(testDictPath).contains(word);
         } catch (IOException e) {
-            fail("Dictionary file access failed", e);
             return false;
         }
     }

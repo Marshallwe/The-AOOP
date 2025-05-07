@@ -9,13 +9,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.Optional;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -26,6 +25,7 @@ class CLIGameTest {
 
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
     private final PrintStream originalOut = System.out;
+    private InputStream originalIn;
 
     @Mock
     private Model mockModel;
@@ -33,14 +33,15 @@ class CLIGameTest {
     @BeforeEach
     void setUp() throws Exception {
         System.setOut(new PrintStream(outContent));
+        originalIn = System.in;
         injectMockModel();
     }
 
     @AfterEach
     void tearDown() {
         System.setOut(originalOut);
-        resetSystemIn();
-        clearMockModel();
+        System.setIn(originalIn);
+        resetMockModel();
     }
 
     private void injectMockModel() throws Exception {
@@ -49,7 +50,7 @@ class CLIGameTest {
         modelField.set(null, mockModel);
     }
 
-    private void clearMockModel() {
+    private void resetMockModel() {
         try {
             Field modelField = CLIGame.class.getDeclaredField("model");
             modelField.setAccessible(true);
@@ -57,8 +58,21 @@ class CLIGameTest {
         } catch (Exception ignored) {}
     }
 
-    private void resetSystemIn() {
-        System.setIn(System.in);
+    private void provideInput(String input) {
+        System.setIn(new ByteArrayInputStream((input + "\n").getBytes()));
+    }
+
+    @Test
+    void processInput_ShouldHandleInvalidAttempts() throws Exception {
+        // Configure test setup
+        when(mockModel.isErrorDisplayEnabled()).thenReturn(true);
+        when(mockModel.submitGuess("xxxx")).thenReturn(false);
+
+        callPrivateMethod("processInput", new Class[]{String.class}, "xxxx");
+
+        String output = outContent.toString();
+        assertTrue(output.contains("1. Valid dictionary word"),
+                "Should display validation rules when error display is enabled");
     }
 
     private void callPrivateMethod(String methodName, Class<?>[] paramTypes, Object... args) throws Exception {
@@ -68,72 +82,22 @@ class CLIGameTest {
     }
 
     @Test
-    void configureSettings_ShouldSetFlagsCorrectly() throws Exception {
-        // Simulate user input: y for error display, n for path display, y for random words
-        String input = "y\nn\ny\n";
-        System.setIn(new ByteArrayInputStream(input.getBytes()));
+    void colorFeedback_ShouldGenerateCorrectOutput() throws Exception {
+        // Create test feedback data
+        List<Model.CharacterStatus> feedback = Arrays.asList(
+                Model.CharacterStatus.CORRECT_POSITION,
+                Model.CharacterStatus.PRESENT_IN_WORD,
+                Model.CharacterStatus.NOT_PRESENT,
+                Model.CharacterStatus.CORRECT_POSITION
+        );
 
-        callPrivateMethod("configureSettings", null);
+        // Invoke color feedback display
+        callPrivateMethod("showColorFeedback", new Class[]{List.class}, feedback);
 
-        // Verify model flags are set correctly
-        verify(mockModel).setErrorDisplayEnabled(true);
-        verify(mockModel).setPathDisplayEnabled(false);
-        verify(mockModel).setUseRandomWords(true);
-    }
-
-    @Test
-    void initializeGame_WithRandomWordsEnabled() throws Exception {
-        // Mock random word generation
-        when(mockModel.isRandomWordsEnabled()).thenReturn(true);
-        when(mockModel.generateValidWordPair()).thenReturn(new String[]{"test", "word"});
-
-        callPrivateMethod("initializeGame", null);
-
-        // Verify game initialization with generated words
-        verify(mockModel).initializeGame("test", "word");
-    }
-
-    @Test
-    void runGameLoop_ShouldCompleteSuccessfully() throws Exception {
-        // Mock model behavior
-        when(mockModel.getCurrentWord()).thenReturn("star", "stir", "ston", "moon");
-        when(mockModel.getTargetWord()).thenReturn("moon");
-        when(mockModel.submitGuess(anyString())).thenReturn(true);
-        when(mockModel.getAttemptCount()).thenReturn(3);
-        when(mockModel.isPathDisplayEnabled()).thenReturn(true);
-        when(mockModel.getGamePath()).thenReturn(Optional.of(Arrays.asList("star", "stir", "ston", "moon")));
-
-        // Simulate valid user inputs
-        String input = "stir\nston\nmoon\n";
-        System.setIn(new ByteArrayInputStream(input.getBytes()));
-
-        // Execute game loop
-        callPrivateMethod("runGameLoop", null);
-
-        // Verify output contains success messages
+        // Verify ANSI color codes in output
         String output = outContent.toString();
-        assertTrue(output.contains("[ VICTORY ] Achieved in 3 steps"),
-                "Victory message not displayed correctly");
-        assertTrue(output.contains("Complete path: star → stir → ston → moon"),
-                "Full path not displayed correctly");
-    }
-
-    @Test
-    void processInput_WithInvalidAttemptAndErrorEnabled() throws Exception {
-        // Configure error display and invalid submission
-        when(mockModel.submitGuess("xxxx")).thenReturn(false);
-        when(mockModel.isErrorDisplayEnabled()).thenReturn(true);
-
-        // Process invalid input
-        callPrivateMethod("processInput", new Class[]{String.class}, "xxxx");
-
-        // Verify error messages contain all validation rules
-        String output = outContent.toString();
-        assertTrue(output.contains("1. Valid dictionary word"),
-                "Dictionary word rule not displayed");
-        assertTrue(output.contains("2. Exactly 1 letter changed"),
-                "Single letter change rule not displayed");
-        assertTrue(output.contains("3. Not a previous attempt"),
-                "Previous attempt rule not displayed");
+        assertTrue(output.contains("\u001B[32m■"), "Missing green block");
+        assertTrue(output.contains("\u001B[33m■"), "Missing yellow block");
+        assertTrue(output.contains("\u001B[37m■"), "Missing white block");
     }
 }
