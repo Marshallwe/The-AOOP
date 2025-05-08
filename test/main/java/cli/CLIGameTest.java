@@ -55,7 +55,8 @@ class CLIGameTest {
             Field modelField = CLIGame.class.getDeclaredField("model");
             modelField.setAccessible(true);
             modelField.set(null, null);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     private void provideInput(String input) {
@@ -99,5 +100,17 @@ class CLIGameTest {
         assertTrue(output.contains("\u001B[32m■"), "Missing green block");
         assertTrue(output.contains("\u001B[33m■"), "Missing yellow block");
         assertTrue(output.contains("\u001B[37m■"), "Missing white block");
+    }
+
+
+    @Test
+    void processInput_ErrorDisplayDisabled_ShouldSuppressMessages() throws Exception {
+        when(mockModel.isErrorDisplayEnabled()).thenReturn(false);
+        when(mockModel.submitGuess("xxxx")).thenReturn(false);
+
+        callPrivateMethod("processInput", new Class[]{String.class}, "xxxx");
+
+        String output = outContent.toString();
+        assertTrue(output.trim().isEmpty(), "Should not display errors when disabled");
     }
 }
