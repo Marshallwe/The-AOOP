@@ -61,6 +61,8 @@ public class Model extends Observable {
             throw new IllegalArgumentException("Dictionary path cannot be null");
         }
         this.validator = new WordValidator(dictionaryPath);
+        assert validator != null : "Validator initialization failed";
+        assert validator.dictionary.size() > 0 : "Empty dictionary loaded";
     }
 
     /* Configuration Methods */
@@ -119,9 +121,15 @@ public class Model extends Observable {
                     validator,
                     config
             );
+            assert game.start.equals(startWord.toLowerCase()) :
+                    "Start word initialization mismatch";
+            assert game.target.equals(targetWord.toLowerCase()) :
+                    "Target word initialization mismatch";
             lastErrorMessage = null;
             notify(NotificationType.GAME_RESET);
         } catch (IllegalArgumentException e) {
+            assert !validator.isValid(startWord) || !validator.isValid(targetWord) :
+                    "Validation error on valid words";
             lastErrorMessage = e.getMessage();
             notify(NotificationType.ERROR);
         }
@@ -138,16 +146,26 @@ public class Model extends Observable {
         try {
             Objects.requireNonNull(word, "Input word cannot be null");
             checkGameInitialized();
+            final int preAttemptCount = game.attemptCount();
+            final String prevWord = game.current;
             if (game.submitAttempt(word)) {
+                assert game.attemptCount() == preAttemptCount + 1 :
+                        "Attempt count not incremented";
+                assert game.current.equals(word.toLowerCase()) :
+                        "Current word not updated";
                 lastErrorMessage = null;
                 notify(NotificationType.STATE_UPDATE);
                 if (game.isWin()) {
+                    assert game.current.equalsIgnoreCase(game.target) :
+                            "Win state with incorrect current word";
                     notify(NotificationType.GAME_WON);
                 }
                 return true;
             }
             return false;
         } catch (IllegalStateException | IllegalArgumentException e) {
+            assert game == null || !validator.isValid(word) :
+                    "Validation error on valid input";
             lastErrorMessage = e.getMessage();
             notify(NotificationType.ERROR);
             return false;
@@ -319,6 +337,9 @@ public class Model extends Observable {
         if (game == null) {
             throw new IllegalStateException("Game not initialized");
         }
+        assert game.start != null : "Missing start word";
+        assert game.target != null : "Missing target word";
+        assert game.path != null : "Missing game path";
     }
 
     /* Observer Notification */
@@ -423,6 +444,8 @@ public class Model extends Observable {
          */
         private List<String> findSolutionPath(String start, String target) {
             Set<String> dictionary = validator.getDictionary();
+            assert dictionary.contains(start) : "Start word not in dictionary";
+            assert dictionary.contains(target) : "Target word not in dictionary";
             Queue<List<String>> queue = new LinkedList<>();
             queue.add(Arrays.asList(start.toLowerCase()));
             Set<String> visited = new HashSet<>();
@@ -431,7 +454,15 @@ public class Model extends Observable {
             while (!queue.isEmpty()) {
                 List<String> path = queue.poll();
                 String current = path.get(path.size() - 1);
+                assert path.size() <= 20 :
+                        "Unreasonable solution path length: " + path.size();
+                assert validator.isValid(current) :
+                        "Invalid word in solution path: " + current;
                 if (current.equalsIgnoreCase(target)) {
+                    assert path.get(0).equalsIgnoreCase(start) :
+                            "Solution path start mismatch";
+                    assert path.get(path.size()-1).equalsIgnoreCase(target) :
+                            "Solution path target mismatch";
                     return path;
                 }
                 // Generate all possible 1-letter variations
@@ -446,6 +477,8 @@ public class Model extends Observable {
                             List<String> newPath = new ArrayList<>(path);
                             newPath.add(next);
                             queue.add(newPath);
+                            assert newPath.size() == path.size() + 1 :
+                                    "Path length increment error";
                         }
                     }
                 }
@@ -480,9 +513,12 @@ public class Model extends Observable {
          * @return true if valid attempt, false otherwise
          */
         boolean submitAttempt(String attempt) {
+            final String originalCurrent = this.current;
             if (isValidAttempt(attempt)) {
                 path.add(attempt.toLowerCase());
                 current = attempt.toLowerCase();
+                assert isSingleLetterChange(originalCurrent, current) :
+                        "Invalid state transition: " + originalCurrent + " → " + current;
                 return true;
             }
             return false;
@@ -548,6 +584,22 @@ public class Model extends Observable {
                     }
                 }
             }
+            final String currentLower = current.toLowerCase();
+            final String targetLower = target.toLowerCase();
+            int correctCount = 0;
+            int presentCount = 0;
+
+            for (CharacterStatus status : statuses) {
+                if (status == CharacterStatus.CORRECT_POSITION) correctCount++;
+                if (status == CharacterStatus.PRESENT_IN_WORD) presentCount++;
+            }
+
+            int actualCorrect = 0;
+            for (int i = 0; i < 4; i++) {
+                if (currentLower.charAt(i) == targetLower.charAt(i)) actualCorrect++;
+            }
+            assert correctCount == actualCorrect :
+                    "Correct position count mismatch: " + correctCount + " vs " + actualCorrect;
 
             return Arrays.asList(statuses);
         }
@@ -625,10 +677,17 @@ public class Model extends Observable {
          */
         private static Set<String> loadDictionary(String path) throws IOException {
             try (Stream<String> lines = Files.lines(Paths.get(path))) {
-                return lines.map(String::trim)
+                Set<String> dict = lines.map(String::trim)
                         .filter(word -> word.length() == 4)
                         .map(word -> word.toLowerCase(Locale.ROOT))
                         .collect(Collectors.toCollection(LinkedHashSet::new));
+
+                assert !dict.isEmpty() : "Empty dictionary loaded";
+                dict.forEach(word -> {
+                    assert word.length() == 4 : "Invalid word length: " + word;
+                    assert word.toLowerCase().equals(word) : "Non-lowercase word: " + word;
+                });
+                return dict;
             }
         }
 

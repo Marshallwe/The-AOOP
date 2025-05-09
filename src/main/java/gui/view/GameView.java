@@ -92,10 +92,13 @@ public class GameView extends JFrame implements Observer {
      * @param model Game model to observe and display
      */
     public void initializeWithModel(Model model) {
+        assert model != null : "Cannot initialize with null model";
         this.model = model;
         resetUI(model.getCurrentWord());
         updatePersistentDisplays(model);
         updatePathDisplay();
+        assert startLabel.getText().contains(model.getStartWord().toUpperCase()) :
+                "Start word display mismatch";
     }
 
     /**
@@ -165,6 +168,8 @@ public class GameView extends JFrame implements Observer {
      * @param type Notification type
      */
     private void handleModelNotification(Model model, Model.NotificationType type) {
+        assert SwingUtilities.isEventDispatchThread() :
+                "UI update not on EDT";
         switch (type) {
             case CONFIG_CHANGED:
                 updateSolutionPathDisplay();
@@ -215,6 +220,8 @@ public class GameView extends JFrame implements Observer {
      * @param isError true for error dialog, false for info
      */
     public void showFeedbackDialog(String title, String message, boolean isError) {
+        assert title != null && !title.isEmpty() : "Invalid dialog title";
+        assert message != null : "Null error message";
         JOptionPane.showMessageDialog(
                 this,
                 message,
@@ -250,6 +257,10 @@ public class GameView extends JFrame implements Observer {
      * @param word Current word being displayed
      */
     public void updateCharacterStatus(List<Model.CharacterStatus> statuses, String word) {
+        assert word != null && word.length() == 4 :
+                "Invalid word for status update: " + word;
+        assert statuses != null && statuses.size() == 4 :
+                "Invalid status list size: " + (statuses != null ? statuses.size() : "null");
         for (int i = 0; i < 4; i++) {
             if (statuses != null && i < statuses.size()) {
                 characterLabels[i].setBackground(colorMapper.getColor(statuses.get(i)));
@@ -267,6 +278,8 @@ public class GameView extends JFrame implements Observer {
      * @param currentWord Word to display as current state
      */
     public void resetUI(String currentWord) {
+        assert currentWord != null && currentWord.length() == 4 :
+                "Invalid reset word: " + currentWord;
         String word = currentWord.toUpperCase();
         for (int i = 0; i < 4; i++) {
             characterLabels[i].setText(String.valueOf(word.charAt(i)));
@@ -281,6 +294,8 @@ public class GameView extends JFrame implements Observer {
         solutionPathPanel.removeAll();
         middleWordsPanel.revalidate();
         solutionPathPanel.revalidate();
+        assert inputField.getText().isEmpty() :
+                "Input field not cleared after reset";
     }
 
     /**
@@ -491,6 +506,8 @@ public class GameView extends JFrame implements Observer {
      * @return Configured keyboard button
      */
     private JButton createKeyboardButton(String key) {
+        assert key != null && !key.isEmpty() :
+                "Invalid keyboard button key";
         JButton button = new JButton(key.toUpperCase());
         button.setBackground(new Color(200, 200, 200));
         button.setForeground(Color.BLACK);
@@ -506,6 +523,7 @@ public class GameView extends JFrame implements Observer {
      * @param key Pressed key value
      */
     private void handleKeyPress(String key) {
+        assert key != null : "Null key press event";
         switch (key) {
             case "←":
                 deleteLastCharacter();
@@ -526,6 +544,7 @@ public class GameView extends JFrame implements Observer {
 
         if (model != null) {
             List<String> fullPath = model.getGamePath();
+            assert fullPath != null : "Null game path from model";
             int stepCount = fullPath.size();
             if (stepCount > 1) {
                 List<String> displaySteps = fullPath.subList(0, stepCount - 1);
@@ -544,6 +563,8 @@ public class GameView extends JFrame implements Observer {
      * @param step Word attempt to display
      */
     private void addStepToPathDisplay(String step) {
+        assert step != null && step.length() == 4 :
+                "Invalid history step: " + step;
         JPanel historyRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
         List<Model.CharacterStatus> statuses = model.getCharacterFeedback(step);
         for (int i = 0; i < 4; i++) {
@@ -650,6 +671,7 @@ public class GameView extends JFrame implements Observer {
      * @param listener Action listener to handle submissions
      */
     public void setSubmitHandler(ActionListener listener) {
+        assert listener != null : "Null submit handler";
         submitButton.addActionListener(listener);
     }
 
@@ -666,6 +688,8 @@ public class GameView extends JFrame implements Observer {
      * @param enabled true to enable button, false to disable
      */
     public void setResetButtonEnabled(boolean enabled) {
+        assert SwingUtilities.isEventDispatchThread() :
+                "UI state change not on EDT";
         resetButton.setEnabled(enabled);
     }
 

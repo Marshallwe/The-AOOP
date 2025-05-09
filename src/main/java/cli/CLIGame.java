@@ -28,6 +28,7 @@ public class CLIGame {
     public static void start() {
         try {
             model = new Model("dictionary.txt");
+            assert model != null : "Model initialization failed";
             configureSettings();
             initializeGame();
             runGameLoop();
@@ -64,11 +65,17 @@ public class CLIGame {
     private static void initializeGame() throws IOException {
         if (model.isRandomWordsEnabled()) {
             String[] words = model.generateValidWordPair();
+            assert words != null && words.length == 2 :
+                    "Invalid word pair generated: expected 2 elements";
             model.initializeGame(words[0], words[1]);
         } else {
             // Default word pair for demonstration
             model.initializeGame("star", "moon");
         }
+        assert model.getCurrentWord() != null && !model.getCurrentWord().isEmpty() :
+                "Current word not initialized";
+        assert model.getTargetWord() != null && !model.getTargetWord().isEmpty() :
+                "Target word not initialized";
     }
 
     /**
@@ -115,6 +122,7 @@ public class CLIGame {
      * @return Formatted path string in uppercase
      */
     private static String formatPath(List<String> path) {
+        assert path != null : "Path list cannot be null";
         return String.join(" → ", path).toUpperCase();
     }
 
@@ -148,6 +156,11 @@ public class CLIGame {
      * @return Formatted string with yellow highlight on changed character
      */
     private static String highlightDifference(String current, String next) {
+        assert current != null && next != null : "Input words cannot be null";
+        assert current.length() == 4 && next.length() == 4 :
+                "Words must be 4 characters long";
+        assert current.length() == next.length() :
+                "Word length mismatch";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < current.length(); i++) {
             char c = current.charAt(i);
@@ -184,6 +197,7 @@ public class CLIGame {
      * @param feedback List of character status indicators
      */
     private static void showColorFeedback(List<Model.CharacterStatus> feedback) {
+        assert feedback != null : "Feedback list cannot be null";
         feedback.forEach(status -> {
             switch (status) {
                 case CORRECT_POSITION:
@@ -215,6 +229,9 @@ public class CLIGame {
      * Displays victory message with step count and path comparison.
      */
     private static void displayVictory() {
+        assert model.getSolutionPath() != null : "Missing solution path";
+        assert !model.getSolutionPath().isEmpty() : "Empty solution path";
+        assert model.getGamePath() != null : "Missing game path";
         System.out.println("\n" + GREEN + "[VICTORY] Steps: " + model.getAttemptCount() + RESET);
         System.out.println("\nOptimal Path:");
         System.out.println(GREEN + formatPath(model.getSolutionPath()) + RESET);

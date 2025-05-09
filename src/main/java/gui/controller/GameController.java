@@ -32,9 +32,12 @@ public class GameController{
      * @param model Model component containing game logic
      */
     public GameController(GameView view, Model model) {
+        assert view != null : "GameView cannot be null";
+        assert model != null : "Model cannot be null";
         this.view = view;
         this.model = model;
         initializeComponents();
+        assert windowInitialized : "Controller initialization failed";
     }
 
     /** Initializes UI components and game state */
@@ -46,13 +49,18 @@ public class GameController{
             view.setupWindow();
             windowInitialized = true;
         }
+        assert view.isDisplayable() : "View window not initialized";
     }
 
     /** Sets up configuration controls in the view */
     private void initializeConfigControls() {
         // Error display toggle
         view.addConfigToggle("Show Errors", model.isErrorDisplayEnabled(),
-                enabled -> model.setErrorDisplayEnabled(enabled));
+                enabled -> {
+                    assert !model.isRandomWordsEnabled() || enabled == model.isErrorDisplayEnabled()
+                            : "Invalid error display state";
+                    model.setErrorDisplayEnabled(enabled);
+                });
         view.addConfigToggle("Show Solution Path", model.isShowPathEnabled(),
                 enabled -> model.setShowPathEnabled(enabled));
         // Random words mode toggle
@@ -102,8 +110,9 @@ public class GameController{
     /** Handles word submission from the view */
     private void handleGuessSubmission(ActionEvent event) {
         String input = view.getUserInput().trim().toLowerCase();
+        assert input != null : "Null input in submission";
         if (!validateInputLength(input)) return;
-
+        assert input.length() == 4 : "Invalid input length after validation";
         if (model.submitGuess(input)) {
             view.clearInputField();
         } else {
@@ -194,10 +203,15 @@ public class GameController{
         try {
             if (model.isRandomWordsEnabled()) {
                 String[] words = model.generateValidWordPair();
+                assert words.length == 2 : "Invalid word pair array";
+                assert words[0].length() == 4 && words[1].length() == 4
+                        : "Generated words have invalid length";
                 model.initializeGame(words[0], words[1]);
             } else {
                 model.initializeGame("star", "moon");
             }
+            assert model.getStartWord() != null && model.getTargetWord() != null
+                    : "Game initialization failed";
             updateStartDisplay();
             updateTargetDisplay();
         } catch (Exception e) {
