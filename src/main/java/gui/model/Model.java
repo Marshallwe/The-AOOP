@@ -72,6 +72,8 @@ public class Model extends Observable {
      * @return true if optimal solution path should be displayed
      */
     public boolean isShowPathEnabled() {
+        boolean result = config.showSolutionPath();
+        assert result == config.showSolutionPath() : "Configuration state inconsistency";
         return config.showSolutionPath();
     }
 
@@ -80,7 +82,10 @@ public class Model extends Observable {
      * @param enabled true to show solution path, false to hide
      */
     public void setShowPathEnabled(boolean enabled) {
+        final boolean before = config.showSolutionPath();
         config.setShowSolutionPath(enabled);
+        assert config.showSolutionPath() == enabled : "Configuration update failed";
+        assert before != enabled : "Redundant configuration change";
         notify(NotificationType.CONFIG_CHANGED);
     }
 
@@ -92,7 +97,13 @@ public class Model extends Observable {
      *         or empty list if no game active
      */
     public List<String> getSolutionPath() {
-        return game != null ? game.getSolutionPath() : Collections.emptyList();
+        List<String> path = game != null ? game.getSolutionPath() : Collections.emptyList();
+        if (game != null) {
+            assert path.size() >= 2 : "Invalid solution path length: " + path.size();
+            assert path.get(0).equals(game.start) : "Solution path start mismatch";
+            assert path.get(path.size()-1).equals(game.target) : "Solution path end mismatch";
+        }
+        return path;
     }
 
     /**
@@ -100,7 +111,11 @@ public class Model extends Observable {
      * @return Starting word or empty string if no game active
      */
     public String getStartWord() {
-        return game != null ? game.startWord() : "";
+        String result = game != null ? game.startWord() : "";
+        if (game != null) {
+            assert result.equals(game.start) : "Start word retrieval error";
+        }
+        return result;
     }
 
     /* Core Game Management */
@@ -179,6 +194,8 @@ public class Model extends Observable {
     public void resetGame() {
         checkGameInitialized();
         game.reset();
+        assert game.path.size() == 1 : "Path not cleared after reset";
+        assert game.attemptCount() == 0 : "Attempt count not reset";
         lastErrorMessage = null;
         notify(NotificationType.GAME_RESET);
     }
@@ -198,7 +215,10 @@ public class Model extends Observable {
      * @param enabled true to show error messages, false to suppress
      */
     public void setErrorDisplayEnabled(boolean enabled) {
+        final boolean before = config.showErrors();
         config.setShowErrors(enabled);
+        assert config.showErrors() == enabled : "Error display config update failed";
+        assert before != enabled : "Redundant error config change";
         notify(NotificationType.CONFIG_CHANGED);
     }
 
@@ -209,7 +229,12 @@ public class Model extends Observable {
      * @return Current word in solution path or empty string if no game
      */
     public String getCurrentWord() {
-        return (game != null) ? game.currentWord() : "";
+        String result = (game != null) ? game.currentWord() : "";
+        if (game != null) {
+            assert result.equals(game.current) : "Current word mismatch";
+            assert game.path.contains(result) : "Current word not in path";
+        }
+        return result;
     }
 
     /**
@@ -217,7 +242,12 @@ public class Model extends Observable {
      * @return Target word or empty string if no game active
      */
     public String getTargetWord() {
-        return (game != null) ? game.targetWord() : "";
+        String result = (game != null) ? game.targetWord() : "";
+        if (game != null) {
+            assert result.equals(game.target) : "Target word mismatch";
+            assert validator.isValid(result) : "Invalid target word in model";
+        }
+        return result;
     }
 
     /**
@@ -236,7 +266,12 @@ public class Model extends Observable {
         if (!validator.isValid(word)) {
             throw new IllegalArgumentException("Invalid word: " + word);
         }
-        return game.calculateFeedback(word);
+
+        List<CharacterStatus> feedback = game.calculateFeedback(word);
+        assert feedback.size() == 4 : "Invalid feedback size: " + feedback.size();
+        assert feedback.stream().allMatch(Objects::nonNull) : "Null status in feedback";
+
+        return feedback;
     }
 
     /**
@@ -245,7 +280,13 @@ public class Model extends Observable {
      *         or empty list if no game active
      */
     public List<String> getGamePath() {
-        return game != null ? game.getPath() : Collections.emptyList();
+        List<String> path = game != null ? game.getPath() : Collections.emptyList();
+        if (game != null) {
+            assert path.size() == game.attemptCount() + 1 : "Path size mismatch";
+            assert path.get(0).equals(game.start) : "Path start mismatch";
+            assert path.get(path.size()-1).equals(game.current) : "Path end mismatch";
+        }
+        return path;
     }
 
     /* Dictionary Operations */
@@ -256,7 +297,13 @@ public class Model extends Observable {
      * @throws IllegalStateException If dictionary contains insufficient words
      */
     public String[] generateValidWordPair() {
-        return validator.getValidWordPair();
+        String[] pair = validator.getValidWordPair();
+        assert pair.length == 2 : "Invalid pair array length: " + pair.length;
+        assert pair[0] != null && pair[1] != null : "Null values in word pair";
+        assert !pair[0].equals(pair[1]) : "Duplicate words in pair";
+        assert validator.isValid(pair[0]) : "Invalid start word: " + pair[0];
+        assert validator.isValid(pair[1]) : "Invalid target word: " + pair[1];
+        return pair;
     }
 
     /* Game Statistics */
@@ -266,7 +313,11 @@ public class Model extends Observable {
      * @return Attempt count or 0 if no game active
      */
     public int getAttemptCount() {
-        return game != null ? game.attemptCount() : 0;
+        int count = game != null ? game.attemptCount() : 0;
+        if (game != null) {
+            assert count == game.path.size() - 1 : "Attempt count mismatch";
+        }
+        return count;
     }
 
     /* Configuration Setters */
@@ -276,7 +327,10 @@ public class Model extends Observable {
      * @param enabled true to use random words for new games
      */
     public void setUseRandomWords(boolean enabled) {
+        final boolean before = config.useRandomWords();
         config.setUseRandomWords(enabled);
+        assert config.useRandomWords() == enabled : "Random words config update failed";
+        assert before != enabled : "Redundant random words config change";
         notify(NotificationType.CONFIG_CHANGED);
     }
 
@@ -287,7 +341,9 @@ public class Model extends Observable {
      * @return true if random words are enabled
      */
     public boolean isRandomWordsEnabled() {
-        return config.useRandomWords();
+        boolean result = config.useRandomWords();
+        assert result == config.useRandomWords() : "Configuration state inconsistency";
+        return result;
     }
 
     /**
@@ -295,7 +351,9 @@ public class Model extends Observable {
      * @return true if errors should be displayed
      */
     public boolean isErrorDisplayEnabled() {
-        return config.showErrors();
+        boolean result = config.showErrors();
+        assert result == config.showErrors() : "Configuration state inconsistency";
+        return result;
     }
 
     /* Validation Helpers */
@@ -311,6 +369,7 @@ public class Model extends Observable {
                 throw new IllegalArgumentException("Invalid 4-letter word: " + word);
             }
         });
+        assert Arrays.stream(words).allMatch(w -> w.length() == 4) : "Word length validation failed";
     }
 
     /**
@@ -325,6 +384,7 @@ public class Model extends Observable {
                 .ifPresent(invalid -> {
                     throw new IllegalArgumentException("Invalid word: " + invalid);
                 });
+        assert Arrays.stream(words).allMatch(validator::isValid) : "Dictionary validation failed";
     }
 
     /* State Validation */
@@ -351,7 +411,9 @@ public class Model extends Observable {
     private void notify(NotificationType type) {
         setChanged();
         super.notifyObservers(type);
+        assert hasChanged() : "Observer state not changed";
         clearChanged();
+        assert !hasChanged() : "Observer state not cleared";
     }
 
     /**
