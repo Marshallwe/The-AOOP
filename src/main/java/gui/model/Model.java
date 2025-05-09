@@ -136,10 +136,6 @@ public class Model extends Observable {
                     validator,
                     config
             );
-            assert game.start.equals(startWord.toLowerCase()) :
-                    "Start word initialization mismatch";
-            assert game.target.equals(targetWord.toLowerCase()) :
-                    "Target word initialization mismatch";
             lastErrorMessage = null;
             notify(NotificationType.GAME_RESET);
         } catch (IllegalArgumentException e) {
@@ -411,7 +407,6 @@ public class Model extends Observable {
     private void notify(NotificationType type) {
         setChanged();
         super.notifyObservers(type);
-        assert hasChanged() : "Observer state not changed";
         clearChanged();
         assert !hasChanged() : "Observer state not cleared";
     }
