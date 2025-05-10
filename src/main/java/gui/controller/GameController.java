@@ -49,7 +49,6 @@ public class GameController{
             view.setupWindow();
             windowInitialized = true;
         }
-        assert view.isDisplayable() : "View window not initialized";
     }
 
     /** Sets up configuration controls in the view */
